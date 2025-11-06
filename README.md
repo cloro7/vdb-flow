@@ -4,6 +4,8 @@ A command-line tool for managing Architecture Decision Records (ADRs) in vector 
 
 The project uses a hexagonal architecture pattern that allows for easy extension to support different vector database backends. Currently, Qdrant is implemented, but the architecture makes it straightforward to add support for other vector databases.
 
+For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
+
 ## Features
 
 - **Collection Management**: Create, delete, clear, list, and inspect vector database collections
@@ -14,6 +16,32 @@ The project uses a hexagonal architecture pattern that allows for easy extension
 - **Current Backend**: Qdrant (with support for other backends via adapter pattern)
 
 ## Installation
+
+### From GitHub Packages
+
+Install the latest published version from GitHub Packages. You'll need a GitHub personal access token with `read:packages` permission.
+
+Configure pip authentication by creating/updating `~/.pip/pip.conf`:
+
+```ini
+[global]
+extra-index-url = https://pypi.python.org/pypi
+```
+
+Or use environment variables:
+
+```bash
+export PIP_EXTRA_INDEX_URL="https://pypi.python.org/pypi"
+export PIP_INDEX_URL="https://pypi.org/simple"
+```
+
+Then install:
+
+```bash
+pip install vdb-manager
+```
+
+For more details, see the [GitHub Packages documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-python-package-registry).
 
 ### From Source
 
@@ -132,9 +160,148 @@ Permanently delete a collection:
 vdb-manager delete my-adr-collection
 ```
 
+## Configuration
+
+VDB Manager can be configured via a `config.yaml` file or environment variables. A complete example configuration file is available at `examples/config.example.yaml`.
+
+### Configuration Precedence
+
+Configuration values are loaded in the following order (later sources override earlier ones):
+
+1. **Default values** - Hardcoded defaults in the application
+2. **Config file** (`~/.vdb-manager/config.yaml` or `~/.vdb-manager/config.yml`) - Values from the configuration file override defaults
+3. **Environment variables** - Environment variables override both defaults and config file values
+
+This means:
+- If a setting is not in your config file, the default value is used
+- If a setting is in your config file, it overrides the default
+- If an environment variable is set, it overrides both the default and config file value
+
+**Example:**
+```bash
+# ~/.vdb-manager/config.yaml (or config.yml) has: db_requests_per_second: 100
+# Environment has: DB_RATE_LIMIT=200
+# Result: 200 (environment variable wins)
+```
+
+### Configuration File
+
+The configuration file is located at `~/.vdb-manager/config.yaml` or `~/.vdb-manager/config.yml` (both are supported, with `config.yaml` taking precedence if both exist). Copy the example configuration file to this location:
+
+```bash
+mkdir -p ~/.vdb-manager
+cp examples/config.example.yaml ~/.vdb-manager/config.yaml
+# or
+cp examples/config.example.yaml ~/.vdb-manager/config.yml
+```
+
+The `~/.vdb-manager/` directory will be created automatically if it doesn't exist when you first run VDB Manager. However, you'll need to create the `config.yaml` or `config.yml` file manually if you want to customize settings.
+
+Then customize the settings as needed. The configuration file supports:
+
+- **Database settings**: Database type and URL
+- **Ollama settings**: API URL, model name, and timeout
+- **Text processing**: Chunk size, overlap, and max text length
+- **Rate limiting**: Database and embedding API request rate limits, with option to disable (development only)
+
+### Environment Variables
+
+You can override any configuration setting using environment variables:
+
+- `VECTOR_DB_TYPE` - Database type (e.g., "qdrant")
+- `QDRANT_URL` or `DATABASE_URL` - Database URL
+- `OLLAMA_URL` - Ollama API endpoint
+- `OLLAMA_MODEL` - Embedding model name
+- `OLLAMA_TIMEOUT` - Request timeout in seconds
+- `CHUNK_SIZE` - Text chunk size in words
+- `CHUNK_OVERLAP` - Chunk overlap in words
+- `RATE_LIMITING_DISABLED` - Set to "true", "1", or "yes" to disable rate limiting (development only)
+- `DB_RATE_LIMIT` - Database requests per second
+- `EMBEDDING_RATE_LIMIT` - Embedding API requests per second
+
+Example:
+
+```bash
+export QDRANT_URL="http://localhost:6333"
+export OLLAMA_URL="http://localhost:11434/api/embeddings"
+export DB_RATE_LIMIT=200
+vdb-manager create my-collection
+```
+
+## Security
+
+VDB Manager implements multiple security measures to protect against common vulnerabilities and ensure safe operation.
+
+### Input Validation
+
+**Collection Name Validation**
+- All collection names are validated using a strict regex pattern
+- Prevents injection attacks by only allowing alphanumeric characters, hyphens, underscores, and dots
+- Must start with alphanumeric character and be 1-63 characters long
+- Applied to all operations: create, delete, clear, get info, upload, and search
+
+**Distance Metric Validation**
+- Only allows valid distance metrics: `Cosine`, `Euclid`, or `Dot`
+- Prevents invalid configuration that could cause errors or unexpected behavior
+
+**Path Validation**
+- All file paths are validated and normalized before use
+- Prevents directory traversal attacks (e.g., `../../../etc/passwd`)
+- Blocks access to sensitive system directories (`/proc`, `/sys`)
+- Validates path existence when required
+- Expands user home directory (`~`) safely
+
+### Rate Limiting
+
+**Request Throttling**
+- Database operations are rate-limited (default: 100 requests/second, configurable)
+- Embedding API calls are rate-limited (default: 10 requests/second, configurable)
+- Prevents abuse and protects against denial-of-service (DoS) attacks
+- Thread-safe implementation ensures proper limiting in concurrent scenarios
+
+### Network Security
+
+**Request Timeouts**
+- All network requests have configurable timeouts (default: 30 seconds for database, 60 seconds for embeddings)
+- Prevents hanging requests that could exhaust resources
+- Comprehensive error handling for timeouts, connection errors, and other network issues
+
+**Error Handling**
+- All network operations are wrapped in try-catch blocks
+- Errors are logged with appropriate detail levels
+- Network failures are handled gracefully without exposing sensitive information
+
+### Data Integrity
+
+**Hash Collision Handling**
+- Uses SHA256 (instead of MD5) for generating deterministic UUIDs
+- Implements collision detection and fallback UUID generation
+- Verifies content matches before skipping uploads to prevent data corruption
+
+**File Encoding Security**
+- Handles Unicode encoding errors gracefully
+- Uses UTF-8 with error replacement for files with encoding issues
+- Prevents crashes from malformed file encodings
+- Logs warnings when encoding issues are encountered
+
+### Best Practices
+
+- **No hardcoded secrets**: All sensitive values come from configuration or environment variables
+- **Principle of least privilege**: Validation ensures only expected inputs are accepted
+- **Defense in depth**: Multiple layers of validation and error handling
+- **Secure defaults**: Sensible default values that prioritize security
+
+### Security Recommendations
+
+1. **Network Security**: Use HTTPS for database and embedding API connections in production
+2. **Access Control**: Ensure proper network-level access controls for your Qdrant instance
+3. **Environment Variables**: Store sensitive configuration (like API keys) in environment variables rather than config files
+4. **Rate Limits**: Adjust rate limits based on your infrastructure capacity and requirements. **Never disable rate limiting in production** - it's a critical security feature that prevents abuse and DoS attacks
+5. **File Permissions**: Ensure config files have appropriate file permissions (e.g., `chmod 600 ~/.vdb-manager/config.yaml` or `chmod 600 ~/.vdb-manager/config.yml`)
+
 ## Requirements
 
-- Python 3.x
+- Python 3.8+
 - Vector database instance (currently Qdrant, default: `http://localhost:6333`)
 - Ollama running with `nomic-embed-text` model (default: `http://localhost:11434`)
 
@@ -148,4 +315,3 @@ The project follows a hexagonal architecture pattern that enables extensibility:
 - **CLI**: Command-line interface in `src/cli/`
 
 This architecture allows you to add support for other vector databases (e.g., Pinecone, Weaviate, Milvus) by implementing the `VectorDatabase` port interface in a new adapter, without modifying the core business logic or CLI.
-
