@@ -97,15 +97,29 @@ vdb-manager create my-adr-collection
 Create a collection with a specific distance metric:
 
 ```bash
-vdb-manager create my-adr-collection Cosine
-vdb-manager create my-adr-collection Euclid
-vdb-manager create my-adr-collection Dot
+vdb-manager create my-adr-collection --distance Cosine
+vdb-manager create my-adr-collection --distance Euclid
+vdb-manager create my-adr-collection --distance Dot
 ```
 
 Create a collection with semantic search only (disable hybrid search):
 
 ```bash
-vdb-manager create my-adr-collection Cosine --no-hybrid
+vdb-manager create my-adr-collection --distance Cosine --no-hybrid
+```
+
+Create a collection with a custom vector size:
+
+```bash
+vdb-manager create my-adr-collection --vector-size 1024
+```
+
+#### Check Version
+
+Display the version of vdb-manager:
+
+```bash
+vdb-manager version
 ```
 
 #### Load ADRs into a Collection

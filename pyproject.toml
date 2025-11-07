@@ -57,7 +57,9 @@ exclude = ["tests*", "*.tests*", "*.tests"]
 
 [tool.setuptools_scm]
 write_to = "src/_version.py"
-version_scheme = "release-branch-semver"
+# Use default version scheme: if on a tag, use tag version; otherwise tag version + .devN
+# This ensures versions come from git tags following semantic versioning
+version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 
 [tool.setuptools.package-data]

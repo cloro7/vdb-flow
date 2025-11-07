@@ -18,6 +18,34 @@ def setup_logging():
     )
 
 
+def _show_version():
+    """Display the version of vdb-manager."""
+    try:
+        # Try to import version from setuptools_scm generated file
+        try:
+            from .. import _version
+
+            version_str = _version.version
+        except (ImportError, AttributeError):
+            # Fallback to importlib.metadata for installed packages
+            try:
+                from importlib.metadata import version as get_version
+
+                version_str = get_version("vdb-manager")
+            except ImportError:
+                # Python < 3.8 fallback
+                try:
+                    from importlib_metadata import version as get_version
+
+                    version_str = get_version("vdb-manager")
+                except ImportError:
+                    version_str = "unknown"
+
+        print(f"vdb-manager {version_str}")
+    except Exception:
+        print("vdb-manager unknown")
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(description="Manage ADR embeddings in Qdrant.")
@@ -81,6 +109,9 @@ def create_parser() -> argparse.ArgumentParser:
         "collection", help="Name of the collection to get information about."
     )
 
+    # Version command
+    subparsers.add_parser("version", help="Show the version of vdb-manager.")
+
     return parser
 
 
@@ -123,6 +154,8 @@ def main():
         commands.get_collection_info(args.collection)
     elif args.action == "load":
         commands.load_collection(args.collection, args.path)
+    elif args.action == "version":
+        _show_version()
     else:
         parser.print_help()
         sys.exit(1)

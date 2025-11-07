@@ -73,13 +73,13 @@ def test_create_command_invalid_vector_size_type():
         )
 
 
-def test_create_command_negative_vector_size():
-    """Test create command accepts negative vector size (validation happens later)."""
+def test_create_command_zero_vector_size():
+    """Test create command accepts zero vector size (validation happens in service)."""
     parser = create_parser()
 
     # Parser should accept it (type checking only)
-    args = parser.parse_args(["create", "test-collection", "--vector-size", "-100"])
-    assert args.vector_size == -100
+    args = parser.parse_args(["create", "test-collection", "--vector-size", "0"])
+    assert args.vector_size == 0
 
 
 def test_delete_command():
@@ -244,6 +244,32 @@ def test_create_collection_with_all_options():
     commands.collection_service.create_collection.assert_called_once_with(
         "test-collection", "Euclid", enable_hybrid=False, vector_size=1024
     )
+
+
+def test_create_collection_invalid_vector_size_zero():
+    """Test create_collection raises ValueError for zero vector size."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+
+    commands.collection_service.create_collection = Mock(
+        side_effect=ValueError("vector_size must be positive, got 0")
+    )
+
+    with pytest.raises(ValueError, match="vector_size must be positive"):
+        commands.create_collection("test-collection", vector_size=0)
+
+
+def test_create_collection_invalid_vector_size_negative():
+    """Test create_collection raises ValueError for negative vector size."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+
+    commands.collection_service.create_collection = Mock(
+        side_effect=ValueError("vector_size must be positive, got -256")
+    )
+
+    with pytest.raises(ValueError, match="vector_size must be positive"):
+        commands.create_collection("test-collection", vector_size=-256)
 
 
 def test_delete_collection():
@@ -581,3 +607,34 @@ def test_main_invalid_command(mock_exit, mock_get_config, mock_create_db):
     # argparse calls sys.exit(2) for invalid arguments, and may call it multiple times
     # Just verify it was called (at least once)
     assert mock_exit.called
+
+
+def test_version_command():
+    """Test version command parsing."""
+    parser = create_parser()
+
+    args = parser.parse_args(["version"])
+    assert args.action == "version"
+
+
+@patch("src.cli.main._show_version")
+@patch("src.cli.main.create_vector_database")
+@patch("src.cli.main.get_config")
+def test_main_version_command(mock_get_config, mock_create_db, mock_show_version):
+    """Test main function routes version command."""
+    from src.cli.main import main
+
+    # Setup mocks
+    mock_config = Mock()
+    mock_config.database_type = "qdrant"
+    mock_config.qdrant_url = "http://localhost:6333"
+    mock_get_config.return_value = mock_config
+
+    mock_db_client = Mock()
+    mock_create_db.return_value = mock_db_client
+
+    # Mock sys.argv
+    with patch("sys.argv", ["vdb-manager", "version"]):
+        main()
+
+    mock_show_version.assert_called_once()
