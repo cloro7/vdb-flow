@@ -18,6 +18,34 @@ def setup_logging():
     )
 
 
+def _show_version():
+    """Display the version of vdb-manager."""
+    try:
+        # Try to import version from setuptools_scm generated file
+        try:
+            from .. import _version
+
+            version_str = _version.version
+        except (ImportError, AttributeError):
+            # Fallback to importlib.metadata for installed packages
+            try:
+                from importlib.metadata import version as get_version
+
+                version_str = get_version("vdb-manager")
+            except ImportError:
+                # Python < 3.8 fallback
+                try:
+                    from importlib_metadata import version as get_version
+
+                    version_str = get_version("vdb-manager")
+                except ImportError:
+                    version_str = "unknown"
+
+        print(f"vdb-manager {version_str}")
+    except Exception:
+        print("vdb-manager unknown")
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(description="Manage ADR embeddings in Qdrant.")
@@ -52,15 +80,22 @@ def create_parser() -> argparse.ArgumentParser:
     )
     create_parser.add_argument("collection", help="Name of the collection to create.")
     create_parser.add_argument(
-        "distance",
-        nargs="?",
+        "--distance",
+        type=str,
         default="Cosine",
-        help="Distance metric to use (Cosine, Euclid, Dot).",
+        choices=["Cosine", "Euclid", "Dot"],
+        help="Distance metric to use (default: Cosine).",
     )
     create_parser.add_argument(
         "--no-hybrid",
         action="store_true",
         help="Disable hybrid search (use semantic search only).",
+    )
+    create_parser.add_argument(
+        "--vector-size",
+        type=int,
+        default=None,
+        help="Size of embedding vectors (defaults to config value, typically 768).",
     )
 
     # List command
@@ -74,7 +109,26 @@ def create_parser() -> argparse.ArgumentParser:
         "collection", help="Name of the collection to get information about."
     )
 
+    # Version command
+    subparsers.add_parser("version", help="Show the version of vdb-manager.")
+
     return parser
+
+
+def _get_commands() -> CLICommands:
+    """
+    Lazy initialization of CLI commands with database client.
+
+    Only initializes the database stack when actually needed.
+    """
+    config = get_config()
+    db_client = create_vector_database(
+        db_type=config.database_type,
+        qdrant_url=(
+            config.qdrant_url if config.database_type.lower() == "qdrant" else None
+        ),
+    )
+    return CLICommands(db_client)
 
 
 def main():
@@ -84,22 +138,28 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    # Initialize database client and CLI commands
-    config = get_config()
-    db_client = create_vector_database(
-        db_type=config.database_type,
-        qdrant_url=(
-            config.qdrant_url if config.database_type.lower() == "qdrant" else None
-        ),
-    )
-    commands = CLICommands(db_client)
+    # Commands that require database access
+    db_commands = {"create", "delete", "clear", "list", "info", "load"}
+
+    # Lazy-load database client only for commands that need it
+    commands = None
+    if args.action in db_commands:
+        commands = _get_commands()
 
     # Route commands
-    if args.action == "create":
+    if args.action == "version":
+        _show_version()
+        return
+    elif args.action == "create":
         # Default to hybrid=True, unless --no-hybrid is specified
         enable_hybrid = not getattr(args, "no_hybrid", False)
+        vector_size = getattr(args, "vector_size", None)
+        distance_metric = getattr(args, "distance", "Cosine")
         commands.create_collection(
-            args.collection, args.distance, enable_hybrid=enable_hybrid
+            args.collection,
+            distance_metric,
+            enable_hybrid=enable_hybrid,
+            vector_size=vector_size,
         )
     elif args.action == "delete":
         commands.delete_collection(args.collection)

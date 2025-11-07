@@ -1,5 +1,10 @@
 # VDB Manager
 
+[![CI](https://github.com/cloro7/vdb-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/cloro7/vdb-manager/actions/workflows/ci.yml)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 A command-line tool for managing Architecture Decision Records (ADRs) in vector databases. This tool enables you to create collections, load ADR markdown files, chunk and embed them, and manage your vector database collections with support for hybrid search (semantic + keyword-based search).
 
 The project uses a hexagonal architecture pattern that allows for easy extension to support different vector database backends. Currently, Qdrant is implemented, but the architecture makes it straightforward to add support for other vector databases.
@@ -12,36 +17,30 @@ For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
 - **ADR Loading**: Recursively load ADR markdown files from directories, automatically chunk and embed them
 - **Hybrid Search Support**: Create collections with hybrid search enabled (semantic + BM25 keyword search)
 - **Embedding Generation**: Uses Ollama with the `nomic-embed-text` model for generating embeddings
-- **Extensible Architecture**: Hexagonal architecture with database port/adapter pattern, making it easy to add support for different vector database backends
-- **Current Backend**: Qdrant (with support for other backends via adapter pattern)
+- **Extensible Architecture**: Hexagonal architecture with pluggable adapter registry, making it easy to add support for different vector database backends
+- **Pluggable Adapters**: Adapter registry system allows third-party adapters to be registered without modifying core code
+- **Current Backend**: Qdrant (with support for other backends via adapter pattern and entry points)
 
 ## Installation
 
-### From GitHub Packages
+### From Git Repository
 
-Install the latest published version from GitHub Packages. You'll need a GitHub personal access token with `read:packages` permission.
-
-Configure pip authentication by creating/updating `~/.pip/pip.conf`:
-
-```ini
-[global]
-extra-index-url = https://pypi.python.org/pypi
-```
-
-Or use environment variables:
+Install directly from the GitHub repository:
 
 ```bash
-export PIP_EXTRA_INDEX_URL="https://pypi.python.org/pypi"
-export PIP_INDEX_URL="https://pypi.org/simple"
+pip install git+https://github.com/cloro7/vdb-manager.git
 ```
 
-Then install:
+To install a specific branch or tag:
 
 ```bash
-pip install vdb-manager
+# Install from a specific branch
+pip install git+https://github.com/cloro7/vdb-manager.git@branch-name
+
+# Install from a specific tag
+pip install git+https://github.com/cloro7/vdb-manager.git@v1.0.0
 ```
 
-For more details, see the [GitHub Packages documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-python-package-registry).
 
 ### From Source
 
@@ -97,15 +96,29 @@ vdb-manager create my-adr-collection
 Create a collection with a specific distance metric:
 
 ```bash
-vdb-manager create my-adr-collection Cosine
-vdb-manager create my-adr-collection Euclid
-vdb-manager create my-adr-collection Dot
+vdb-manager create my-adr-collection --distance Cosine
+vdb-manager create my-adr-collection --distance Euclid
+vdb-manager create my-adr-collection --distance Dot
 ```
 
 Create a collection with semantic search only (disable hybrid search):
 
 ```bash
-vdb-manager create my-adr-collection Cosine --no-hybrid
+vdb-manager create my-adr-collection --distance Cosine --no-hybrid
+```
+
+Create a collection with a custom vector size:
+
+```bash
+vdb-manager create my-adr-collection --vector-size 1024
+```
+
+#### Check Version
+
+Display the version of vdb-manager:
+
+```bash
+vdb-manager version
 ```
 
 #### Load ADRs into a Collection
@@ -315,3 +328,68 @@ The project follows a hexagonal architecture pattern that enables extensibility:
 - **CLI**: Command-line interface in `src/cli/`
 
 This architecture allows you to add support for other vector databases (e.g., Pinecone, Weaviate, Milvus) by implementing the `VectorDatabase` port interface in a new adapter, without modifying the core business logic or CLI.
+
+## Extensibility
+
+VDB Manager uses a **pluggable adapter registry system** that makes the hexagonal architecture practical and extensible. You can add custom database adapters without modifying core code.
+
+### Creating a Custom Adapter
+
+To create a custom adapter for a new vector database:
+
+1. Implement the `VectorDatabase` interface from `src.database.port`
+2. Create a factory function that returns your adapter instance
+3. Register it with the adapter registry:
+
+```python
+from src.database import register_adapter, VectorDatabase
+
+class MyVectorDatabase(VectorDatabase):
+    # Implement all abstract methods...
+    pass
+
+def create_my_adapter(**kwargs):
+    return MyVectorDatabase(**kwargs)
+
+# Register the adapter
+register_adapter("mydb", create_my_adapter)
+
+# Now you can use it
+from src.database import create_vector_database
+db = create_vector_database("mydb", api_key="...")
+```
+
+### Entry Points for Third-Party Packages
+
+Third-party packages can register adapters via setuptools entry points in their `pyproject.toml`:
+
+```toml
+[project.entry-points."vdb_manager.adapters"]
+pinecone = "vdb_manager_pinecone:register_pinecone_adapter"
+```
+
+The entry point should be a callable function that registers the adapter. For example:
+
+```python
+# In vdb_manager_pinecone package
+from src.database import register_adapter
+from .pinecone_adapter import PineconeVectorDatabase
+
+def register_pinecone_adapter():
+    """Entry point function that registers the Pinecone adapter."""
+    def create_pinecone_adapter(**kwargs):
+        return PineconeVectorDatabase(**kwargs)
+    register_adapter("pinecone", create_pinecone_adapter)
+```
+
+The entry point function will be called automatically when `create_vector_database` is first invoked. This allows adapter packages to be installed separately and automatically discovered.
+
+### Available Adapters
+
+You can check which adapters are available at runtime:
+
+```python
+from src.database import get_available_adapters
+
+print(get_available_adapters())  # ['qdrant', ...]
+```

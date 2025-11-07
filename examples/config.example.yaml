@@ -16,6 +16,7 @@ ollama:
   url: "http://localhost:11434/api/embeddings"  # Ollama API endpoint
   model: "nomic-embed-text:latest"  # Embedding model to use
   timeout: 60  # Request timeout in seconds
+  vector_size: 768  # Size of embedding vectors (default: 768 for nomic-embed-text, adjust for other models)
 
 # Text processing configuration
 text_processing:
