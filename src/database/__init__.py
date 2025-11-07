@@ -1,10 +1,12 @@
 """Database module following hexagonal architecture."""
 
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, List
 from .port import VectorDatabase
 
 __all__ = [
     "VectorDatabase",
+    "VectorDatabaseError",
+    "CollectionNotFoundError",
     "create_vector_database",
     "register_adapter",
     "get_available_adapters",
@@ -32,7 +34,7 @@ def register_adapter(name: str, factory: Callable[..., VectorDatabase]) -> None:
     _ADAPTERS[name.lower()] = factory
 
 
-def get_available_adapters() -> list[str]:
+def get_available_adapters() -> List[str]:
     """
     Get list of available database adapter names.
 

@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Callable, Optional, Tuple
 from ...constants import DEFAULT_MAX_WORKERS, DEFAULT_VECTOR_SIZE
 from ...rate_limiter import db_rate_limiter
 from ...validation import validate_collection_name, validate_distance_metric
-from ..port import VectorDatabase
+from ..port import VectorDatabase, CollectionNotFoundError
 from .. import register_adapter
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,8 @@ class QdrantError(Exception):
     pass
 
 
-class QdrantCollectionNotFoundError(QdrantError):
-    """Exception raised when a collection is not found."""
+class QdrantCollectionNotFoundError(CollectionNotFoundError, QdrantError):
+    """Exception raised when a collection is not found in Qdrant."""
 
     pass
 
@@ -313,7 +313,7 @@ class QdrantVectorDatabase(VectorDatabase):
             Collection information
 
         Raises:
-            QdrantCollectionNotFoundError: If collection doesn't exist
+            CollectionNotFoundError: If collection doesn't exist
             QdrantNetworkError: If network request fails
             ValueError: If collection name is invalid
         """
