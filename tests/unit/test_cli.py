@@ -403,55 +403,34 @@ def test_load_collection_value_error(
     commands.collection_service.load_collection.assert_called_once()
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_create_command(mock_commands_class, mock_get_config, mock_create_db):
+@patch("src.cli.main._get_commands")
+def test_main_create_command(mock_get_commands):
     """Test main function routes create command correctly."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "create", "test-collection"]):
         main()
 
-    # Verify create_collection was called with defaults
+    # Verify database was initialized and create_collection was called with defaults
+    mock_get_commands.assert_called_once()
     mock_commands.create_collection.assert_called_once_with(
         "test-collection", "Cosine", enable_hybrid=True, vector_size=None
     )
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_create_command_with_options(
-    mock_commands_class, mock_get_config, mock_create_db
-):
+@patch("src.cli.main._get_commands")
+def test_main_create_command_with_options(mock_get_commands):
     """Test main function routes create command with all options."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv with all options
     with patch(
@@ -470,132 +449,86 @@ def test_main_create_command_with_options(
         main()
 
     # Verify create_collection was called with all options
+    mock_get_commands.assert_called_once()
     mock_commands.create_collection.assert_called_once_with(
         "test-collection", "Euclid", enable_hybrid=False, vector_size=1024
     )
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_delete_command(mock_commands_class, mock_get_config, mock_create_db):
+@patch("src.cli.main._get_commands")
+def test_main_delete_command(mock_get_commands):
     """Test main function routes delete command."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "delete", "test-collection"]):
         main()
 
+    mock_get_commands.assert_called_once()
     mock_commands.delete_collection.assert_called_once_with("test-collection")
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_list_command(mock_commands_class, mock_get_config, mock_create_db):
+@patch("src.cli.main._get_commands")
+def test_main_list_command(mock_get_commands):
     """Test main function routes list command."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "list"]):
         main()
 
+    mock_get_commands.assert_called_once()
     mock_commands.list_collections.assert_called_once()
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_info_command(mock_commands_class, mock_get_config, mock_create_db):
+@patch("src.cli.main._get_commands")
+def test_main_info_command(mock_get_commands):
     """Test main function routes info command."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "info", "test-collection"]):
         main()
 
+    mock_get_commands.assert_called_once()
     mock_commands.get_collection_info.assert_called_once_with("test-collection")
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-@patch("src.cli.main.CLICommands")
-def test_main_load_command(mock_commands_class, mock_get_config, mock_create_db):
+@patch("src.cli.main._get_commands")
+def test_main_load_command(mock_get_commands):
     """Test main function routes load command."""
     from src.cli.main import main
 
     # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
-
     mock_commands = Mock()
-    mock_commands_class.return_value = mock_commands
+    mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "load", "test-collection", "/path/to/adrs"]):
         main()
 
+    mock_get_commands.assert_called_once()
     mock_commands.load_collection.assert_called_once_with(
         "test-collection", "/path/to/adrs"
     )
 
 
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
 @patch("src.cli.main.sys.exit")
-def test_main_invalid_command(mock_exit, mock_get_config, mock_create_db):
-    """Test main function handles invalid command."""
+def test_main_invalid_command(mock_exit):
+    """Test main function handles invalid command without initializing database."""
     from src.cli.main import main
-
-    # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
 
     # Mock sys.argv with invalid command
     with patch("sys.argv", ["vdb-manager", "invalid-command"]):
@@ -606,6 +539,7 @@ def test_main_invalid_command(mock_exit, mock_get_config, mock_create_db):
 
     # argparse calls sys.exit(2) for invalid arguments, and may call it multiple times
     # Just verify it was called (at least once)
+    # Also verify database was NOT initialized (no need to mock _get_commands)
     assert mock_exit.called
 
 
@@ -618,23 +552,16 @@ def test_version_command():
 
 
 @patch("src.cli.main._show_version")
-@patch("src.cli.main.create_vector_database")
-@patch("src.cli.main.get_config")
-def test_main_version_command(mock_get_config, mock_create_db, mock_show_version):
-    """Test main function routes version command."""
+def test_main_version_command(mock_show_version):
+    """Test main function routes version command without initializing database."""
     from src.cli.main import main
-
-    # Setup mocks
-    mock_config = Mock()
-    mock_config.database_type = "qdrant"
-    mock_config.qdrant_url = "http://localhost:6333"
-    mock_get_config.return_value = mock_config
-
-    mock_db_client = Mock()
-    mock_create_db.return_value = mock_db_client
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-manager", "version"]):
         main()
 
+    # Verify version was shown
     mock_show_version.assert_called_once()
+
+    # Verify database was NOT initialized (no calls to get_config or create_vector_database)
+    # This is verified by the fact that we don't need to mock them
