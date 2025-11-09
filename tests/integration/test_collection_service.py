@@ -105,6 +105,13 @@ def test_get_collection_info_nonexistent(collection_service):
         collection_service.get_collection_info(non_existent_collection)
 
 
+def test_delete_collection_nonexistent(collection_service):
+    """Test that delete_collection raises CollectionNotFoundError for non-existent collection."""
+    non_existent_collection = "non-existent-collection-to-delete-12345"
+    with pytest.raises(CollectionNotFoundError):
+        collection_service.delete_collection(non_existent_collection)
+
+
 def test_load_collection(collection_service, test_collection, test_adr_dir):
     """Test that load_collection can load ADR files."""
     # Load the collection
