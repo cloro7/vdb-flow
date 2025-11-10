@@ -264,9 +264,11 @@ VDB Manager implements multiple security measures to protect against common vuln
 - **Always blocks** access to virtual filesystem directories (`/proc`, `/sys`, `/dev`, `/run`, `/var/run`) - these can leak kernel memory or device nodes
 - **Optionally blocks** system directories (`/etc`, `/root`, `/boot`, `/sbin`, `/usr/sbin`) - these generate warnings by default but can be blocked via config
 - **Custom restricted paths**: You can configure any custom directory path to block via `security.restricted_paths` in your config file
+- **Glob pattern support**: Fine-grained control using `denied_patterns` and `allowed_patterns` with glob syntax
 - Supports path normalization (expands `~`, resolves relative paths, handles `..` segments)
 - Validates path existence when required
 - Uses path boundary checks to prevent false positives (e.g., `/etcetera` is allowed even though it shares a prefix with `/etc`)
+- **Audit logging**: Logs when denied patterns block access for security auditing
 
 **Custom Restricted Paths Configuration**
 
@@ -287,6 +289,42 @@ security:
 You can use:
 - **Absolute paths**: `/mnt/secrets`, `/var/sensitive`
 - **Paths with `~`**: `~/private` (expands to `/home/user/private` - becomes absolute)
+
+**Glob Pattern-Based Access Control**
+
+For more fine-grained control, you can use glob patterns to define deny/allow rules:
+
+```yaml
+security:
+  # Block all files under /etc recursively
+  denied_patterns:
+    - /etc/**
+    - /var/secrets/*
+    - ~/private/*.md          # Block all .md files in private directory
+    - /tmp/**/secrets/*        # Block secrets directories anywhere under /tmp
+
+  # Allow specific subdirectories even if parent is denied
+  # Allowed patterns override denied patterns (higher precedence)
+  allowed_patterns:
+    - /etc/company-docs/**     # Allow company docs under /etc even if /etc/** is denied
+    - ~/private/public/*       # Allow public files in private directory
+```
+
+**Glob Pattern Syntax:**
+- `*` - Matches any sequence of characters (except `/`)
+- `**` - Matches any sequence of characters including `/` (recursive)
+- `?` - Matches any single character
+
+**Pattern Precedence:**
+1. **Allowed patterns** are checked first - if a path matches an allowed pattern, it's permitted even if it also matches a denied pattern
+2. **Denied patterns** are checked second - if a path matches a denied pattern and not an allowed pattern, access is blocked
+3. **Literal restricted paths** (from `restricted_paths`) are always checked and cannot be overridden by patterns
+
+**Audit Logging:**
+When a denied pattern blocks access, an INFO-level log message is generated for audit purposes:
+```
+INFO - Blocked access to '/etc/passwd' due to denied pattern '/etc/**'
+```
 
 You cannot use:
 - **Relative paths**: `secrets`, `../private`, `./config` (will raise `ValueError`)

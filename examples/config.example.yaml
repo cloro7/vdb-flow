@@ -48,3 +48,23 @@ security:
   #   - /mnt/secrets            # Custom restricted directory (absolute path)
   #   - ~/private               # User's private directory (expands to /home/user/private)
   #   - /var/sensitive          # Another custom restricted directory (absolute path)
+
+  # Glob patterns to block (supports standard glob syntax: *, **, ?)
+  # Patterns are normalized (expand ~, make absolute, resolve symlinks) before matching
+  # Example: Block all files under /etc and /var/secrets
+  denied_patterns: []
+  # Example: To block specific patterns, uncomment:
+  # denied_patterns:
+  #   - /etc/**                 # Block all files under /etc recursively
+  #   - /var/secrets/*          # Block all files directly under /var/secrets
+  #   - ~/private/*.md          # Block all .md files in user's private directory
+  #   - /tmp/**/secrets/*        # Block secrets directories anywhere under /tmp
+
+  # Glob patterns to explicitly permit (overrides denied_patterns)
+  # Allowed patterns have higher precedence than denied patterns
+  # Example: Allow specific subdirectories even if parent is denied
+  allowed_patterns: []
+  # Example: To allow specific patterns, uncomment:
+  # allowed_patterns:
+  #   - /etc/company-docs/**     # Allow company docs under /etc even if /etc/** is denied
+  #   - ~/private/public/*       # Allow public files in private directory

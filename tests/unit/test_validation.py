@@ -343,3 +343,190 @@ def test_path_normalization():
         # Path with redundant separators should normalize
         normalized = validate_path(f"{tmpdir}//test.txt", must_exist=True)
         assert normalized == test_file
+
+
+class TestGlobPatternValidation:
+    """Test glob pattern-based path validation."""
+
+    def test_denied_pattern_blocks_path(self, tmpdir):
+        """Test that denied patterns block matching paths."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        # Block all .md files in tmpdir
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/*.md"],
+            )
+
+    def test_denied_pattern_recursive(self, tmpdir):
+        """Test that recursive denied patterns (/**) work correctly."""
+        nested_dir = Path(tmpdir) / "nested" / "deep"
+        nested_dir.mkdir(parents=True)
+        test_file = nested_dir / "test.txt"
+        test_file.write_text("test")
+
+        # Block all files recursively under tmpdir
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/**"],
+            )
+
+    def test_allowed_pattern_overrides_denied(self, tmpdir):
+        """Test that allowed patterns override denied patterns."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        # Deny all .md files but allow this specific one
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/*.md"],
+            allowed_patterns=[str(test_file)],
+        )
+        assert validated == test_file
+
+    def test_allowed_pattern_recursive_override(self, tmpdir):
+        """Test that recursive allowed patterns override denied patterns."""
+        nested_dir = Path(tmpdir) / "allowed" / "subdir"
+        nested_dir.mkdir(parents=True)
+        test_file = nested_dir / "test.md"
+        test_file.write_text("test")
+
+        # Deny all .md files but allow everything under allowed/
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/*.md"],
+            allowed_patterns=[f"{tmpdir}/allowed/**"],
+        )
+        assert validated == test_file
+
+    def test_denied_pattern_logs_audit_message(self, tmpdir, caplog):
+        """Test that denied patterns log audit messages."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        with caplog.at_level(logging.INFO):
+            with pytest.raises(ValueError):
+                validate_path(
+                    str(test_file),
+                    must_exist=True,
+                    denied_patterns=[f"{tmpdir}/*.md"],
+                )
+
+        # Check that audit log was generated
+        assert "Blocked access" in caplog.text
+        assert str(test_file) in caplog.text
+        assert f"{tmpdir}/*.md" in caplog.text or "denied pattern" in caplog.text
+
+    def test_pattern_normalization_expands_tilde(self, tmpdir, monkeypatch):
+        """Test that patterns with ~ are normalized correctly."""
+        # Mock home directory
+        home_dir = Path(tmpdir) / "home" / "user"
+        home_dir.mkdir(parents=True)
+        monkeypatch.setattr(
+            os.path,
+            "expanduser",
+            lambda x: str(home_dir) if x == "~" else x.replace("~", str(home_dir)),
+        )
+
+        test_file = home_dir / "private" / "test.md"
+        test_file.parent.mkdir()
+        test_file.write_text("test")
+
+        # Use ~ in pattern
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=["~/private/**"],
+            )
+
+    def test_pattern_with_wildcards(self, tmpdir):
+        """Test patterns with various wildcard combinations."""
+        test_file1 = Path(tmpdir) / "secret1.txt"
+        test_file2 = Path(tmpdir) / "secret2.txt"
+        test_file3 = Path(tmpdir) / "public.txt"
+        test_file1.write_text("test1")
+        test_file2.write_text("test2")
+        test_file3.write_text("test3")
+
+        # Block files matching secret*.txt
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file1),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/secret*.txt"],
+            )
+
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file2),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/secret*.txt"],
+            )
+
+        # public.txt should not be blocked
+        validated = validate_path(
+            str(test_file3),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/secret*.txt"],
+        )
+        assert validated == test_file3
+
+    def test_glob_patterns_with_literal_restrictions(self, tmpdir):
+        """Test that glob patterns work alongside literal restricted paths."""
+        # Create a directory that would be blocked by literal restriction
+        restricted_dir = Path(tmpdir) / "restricted"
+        restricted_dir.mkdir()
+        test_file = restricted_dir / "test.txt"
+        test_file.write_text("test")
+
+        # Block via literal path
+        with pytest.raises(ValueError, match="restricted system directory"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                restricted_paths=[str(restricted_dir)],
+            )
+
+        # Also block via glob pattern
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/restricted/**"],
+            )
+
+    def test_no_patterns_no_effect(self, tmpdir):
+        """Test that paths are allowed when no patterns are specified."""
+        test_file = Path(tmpdir) / "test.txt"
+        test_file.write_text("test")
+
+        # Should work fine with no patterns
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=None,
+            allowed_patterns=None,
+        )
+        assert validated == test_file
+
+    def test_empty_patterns_no_effect(self, tmpdir):
+        """Test that empty pattern lists have no effect."""
+        test_file = Path(tmpdir) / "test.txt"
+        test_file.write_text("test")
+
+        # Should work fine with empty pattern lists
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[],
+            allowed_patterns=[],
+        )
+        assert validated == test_file
