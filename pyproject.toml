@@ -3,7 +3,7 @@ requires = ["setuptools>=64.0", "setuptools-scm>=7.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vdb-manager"
+name = "vdb-flow"
 dynamic = ["version"]
 description = "A command-line tool for managing Architecture Decision Records (ADRs) in a Qdrant vector database"
 readme = "README.md"
@@ -40,18 +40,18 @@ dev = [
 ]
 
 [project.scripts]
-vdb-manager = "src.cli.main:main"
+vdb-flow = "src.cli.main:main"
 
-[project.entry-points."vdb_manager.adapters"]
+[project.entry-points."vdb_flow.adapters"]
 # Entry points for third-party database adapters
 # Example:
-# pinecone = "vdb_manager_pinecone:register_pinecone_adapter"
-# weaviate = "vdb_manager_weaviate:register_weaviate_adapter"
+# pinecone = "vdb_flow_pinecone:register_pinecone_adapter"
+# weaviate = "vdb_flow_weaviate:register_weaviate_adapter"
 
 [project.urls]
-Homepage = "https://github.com/cloro7/vdb-manager"
-Repository = "https://github.com/cloro7/vdb-manager"
-Issues = "https://github.com/cloro7/vdb-manager/issues"
+Homepage = "https://github.com/cloro7/vdb-flow"
+Repository = "https://github.com/cloro7/vdb-flow"
+Issues = "https://github.com/cloro7/vdb-flow/issues"
 
 [tool.setuptools]
 package-dir = {"" = "."}

@@ -6,7 +6,14 @@ import time
 import logging
 from typing import Optional
 
-from ..database.port import VectorDatabase
+from ..database.port import (
+    CollectionNotFoundError,
+    DatabaseConnectionError,
+    DatabaseTimeoutError,
+    DatabaseOperationError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+)
 from ..services.collection import CollectionService
 
 logger = logging.getLogger(__name__)
@@ -15,14 +22,14 @@ logger = logging.getLogger(__name__)
 class CLICommands:
     """Command handlers for CLI operations."""
 
-    def __init__(self, db_client: VectorDatabase):
+    def __init__(self, collection_service: CollectionService):
         """
         Initialize CLI commands.
 
         Args:
-            db_client: Vector database client
+            collection_service: Collection service instance
         """
-        self.collection_service = CollectionService(db_client)
+        self.collection_service = collection_service
 
     def create_collection(
         self,
@@ -40,8 +47,7 @@ class CLICommands:
             enable_hybrid: Enable hybrid search with sparse vectors
             vector_size: Size of embedding vectors (defaults to config value)
 
-        Raises:
-            ValueError: If vector_size is invalid (non-positive)
+        Exits with code 1 on validation or database errors.
         """
         try:
             created_collection = self.collection_service.create_collection(
@@ -51,29 +57,83 @@ class CLICommands:
                 vector_size=vector_size,
             )
             logger.info(f"Created collection: {created_collection}")
+        except InvalidVectorSizeError as e:
+            logger.error(f"Invalid vector size: {e}")
+            sys.exit(1)
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
         except ValueError as e:
             logger.error(str(e))
-            raise
+            sys.exit(1)
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete an existing collection."""
-        self.collection_service.delete_collection(collection_name)
-        logger.info(f"Deleted collection: {collection_name}")
+        try:
+            self.collection_service.delete_collection(collection_name)
+            logger.info(f"Deleted collection: {collection_name}")
+        except CollectionNotFoundError as e:
+            logger.error(f"Collection not found: {e}")
+            sys.exit(1)
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def clear_collection(self, collection_name: str) -> None:
         """Clear all points from a collection."""
-        self.collection_service.clear_collection(collection_name)
-        logger.info(f"Cleared collection: {collection_name}")
+        try:
+            self.collection_service.clear_collection(collection_name)
+            logger.info(f"Cleared collection: {collection_name}")
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def list_collections(self) -> None:
         """List all collections."""
-        collections = self.collection_service.list_collections()
-        logger.info(f"Listed collections: {collections}")
+        try:
+            collections = self.collection_service.list_collections()
+            logger.info(f"Listed collections: {collections}")
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def get_collection_info(self, collection_name: str) -> None:
         """Get information about a collection."""
-        collection_info = self.collection_service.get_collection_info(collection_name)
-        logger.info(f"Collection info: {collection_info}")
+        try:
+            collection_info = self.collection_service.get_collection_info(
+                collection_name
+            )
+            logger.info(f"Collection info: {collection_info}")
+        except (
+            CollectionNotFoundError,
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def load_collection(self, collection_name: str, path: str) -> None:
         """
@@ -98,8 +158,28 @@ class CLICommands:
 
         try:
             self.collection_service.load_collection(collection_name, adr_path)
+        except CollectionNotFoundError as e:
+            logger.error(f"Collection not found: {e}")
+            sys.exit(1)
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
         except ValueError as e:
             logger.error(str(e))
+            sys.exit(1)
+        except RuntimeError as e:
+            # Embedding service connection errors
+            logger.error(f"Embedding service error: {e}")
+            logger.error(
+                "Please check that Ollama is running and accessible at the configured URL."
+            )
             sys.exit(1)
 
         elapsed = time.time() - start_time

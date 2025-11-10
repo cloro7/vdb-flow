@@ -4,8 +4,7 @@ import argparse
 import logging
 import sys
 
-from ..config import get_config
-from ..database import create_vector_database
+from ..composition import get_container
 from .commands import CLICommands
 
 
@@ -19,7 +18,7 @@ def setup_logging():
 
 
 def _show_version():
-    """Display the version of vdb-manager."""
+    """Display the version of vdb-flow."""
     try:
         # Try to import version from setuptools_scm generated file
         try:
@@ -31,19 +30,19 @@ def _show_version():
             try:
                 from importlib.metadata import version as get_version
 
-                version_str = get_version("vdb-manager")
+                version_str = get_version("vdb-flow")
             except ImportError:
                 # Python < 3.8 fallback
                 try:
                     from importlib_metadata import version as get_version
 
-                    version_str = get_version("vdb-manager")
+                    version_str = get_version("vdb-flow")
                 except ImportError:
                     version_str = "unknown"
 
-        print(f"vdb-manager {version_str}")
+        print(f"vdb-flow {version_str}")
     except Exception:
-        print("vdb-manager unknown")
+        print("vdb-flow unknown")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -110,25 +109,19 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Version command
-    subparsers.add_parser("version", help="Show the version of vdb-manager.")
+    subparsers.add_parser("version", help="Show the version of vdb-flow.")
 
     return parser
 
 
 def _get_commands() -> CLICommands:
     """
-    Lazy initialization of CLI commands with database client.
+    Lazy initialization of CLI commands using composition root.
 
     Only initializes the database stack when actually needed.
     """
-    config = get_config()
-    db_client = create_vector_database(
-        db_type=config.database_type,
-        qdrant_url=(
-            config.qdrant_url if config.database_type.lower() == "qdrant" else None
-        ),
-    )
-    return CLICommands(db_client)
+    container = get_container()
+    return CLICommands(container.collection_service)
 
 
 def main():

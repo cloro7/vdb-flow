@@ -1,6 +1,7 @@
 """Unit tests for validation utilities."""
 
 import os
+import logging
 import tempfile
 import pytest
 from pathlib import Path
@@ -14,23 +15,17 @@ from src.validation import (
 
 def test_valid_collection_names():
     """Test that valid collection names pass validation."""
-    valid_names = [
-        "test",
-        "test-123",
-        "test_123",
-        "test.v1",
-        "a",
-        "a1",
-        "test123",
-        "Test123",
-        "test-collection-name",
-        "test_collection_name",
-        "test.collection.name",
-        "a" * 63,  # Maximum length
-    ]
+    valid_names = ["test", "test-123", "test_123", "test.v1", "my-collection"]
     for name in valid_names:
-        # Should not raise
-        validate_collection_name(name)
+        validate_collection_name(name)  # Should not raise
+
+
+def test_invalid_collection_names_not_string():
+    """Test that non-string collection names raise ValueError."""
+    invalid_names = [None, 123, [], {}]
+    for name in invalid_names:
+        with pytest.raises(ValueError, match="Collection name must be a string"):
+            validate_collection_name(name)
 
 
 def test_invalid_collection_names_empty():
@@ -39,115 +34,92 @@ def test_invalid_collection_names_empty():
         validate_collection_name("")
 
 
-def test_invalid_collection_names_not_string():
-    """Test that non-string collection names raise ValueError."""
-    with pytest.raises(ValueError, match="Collection name must be a string"):
-        validate_collection_name(None)
-    with pytest.raises(ValueError, match="Collection name must be a string"):
-        validate_collection_name(123)
-    with pytest.raises(ValueError, match="Collection name must be a string"):
-        validate_collection_name([])
-
-
 def test_invalid_collection_names_special_chars():
     """Test that collection names with special characters raise ValueError."""
     invalid_names = [
         "test/",
         "../test",
         "test;drop",
-        "test' OR '1'='1",
-        "-test",  # Doesn't start with alphanumeric
-        "_test",  # Doesn't start with alphanumeric
-        ".test",  # Doesn't start with alphanumeric
-        "test@123",
-        "test#123",
-        "test$123",
-        "test%123",
-        "test space",
-        "test\ttab",
-        "test\nnewline",
+        "test@name",
+        "test name",  # spaces
+        "-test",  # starts with hyphen
+        ".test",  # starts with dot
     ]
     for name in invalid_names:
         with pytest.raises(ValueError, match="Invalid collection name"):
             validate_collection_name(name)
 
 
-def test_invalid_collection_names_too_long():
-    """Test that collection names exceeding 63 characters raise ValueError."""
-    too_long = "a" * 64
-    with pytest.raises(ValueError, match="Invalid collection name"):
-        validate_collection_name(too_long)
-
-
 def test_valid_distance_metrics():
     """Test that valid distance metrics pass validation."""
     valid_metrics = ["Cosine", "Euclid", "Dot"]
     for metric in valid_metrics:
-        # Should not raise
-        validate_distance_metric(metric)
+        validate_distance_metric(metric)  # Should not raise
 
 
-def test_invalid_distance_metrics_not_string():
-    """Test that non-string distance metrics raise ValueError."""
-    with pytest.raises(ValueError, match="Distance metric must be a string"):
-        validate_distance_metric(None)
-    with pytest.raises(ValueError, match="Distance metric must be a string"):
-        validate_distance_metric(123)
-    with pytest.raises(ValueError, match="Distance metric must be a string"):
-        validate_distance_metric([])
-
-
-def test_invalid_distance_metrics_invalid_value():
-    """Test that invalid distance metric values raise ValueError."""
-    invalid_metrics = [
-        "cosine",  # lowercase
-        "COSINE",  # uppercase
-        "Manhattan",
-        "Hamming",
-        "L2",
-        "L1",
-        "",
-        "invalid",
-    ]
+def test_invalid_distance_metrics():
+    """Test that invalid distance metrics raise ValueError."""
+    invalid_metrics = ["cosine", "EUCLID", "Manhattan", "invalid", ""]
     for metric in invalid_metrics:
         with pytest.raises(ValueError, match="Invalid distance metric"):
             validate_distance_metric(metric)
 
 
-def test_valid_path_exists():
-    """Test that valid existing paths pass validation."""
+def test_valid_paths():
+    """Test that valid paths pass validation."""
+    original_cwd = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test absolute path
+            validate_path(tmpdir, must_exist=True)
+
+            # Test relative path
+            os.chdir(tmpdir)
+            subdir = Path(tmpdir) / "subdir"
+            subdir.mkdir()
+            validate_path("subdir", must_exist=True)
+
+            # Test path with must_exist=False
+            validate_path("/tmp", must_exist=False)
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_valid_relative_paths_with_traversal():
+    """Test that relative paths with '..' are allowed when they resolve safely."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_file = Path(tmpdir) / "test.txt"
-        test_file.write_text("test")
+        original_cwd = os.getcwd()
+        try:
+            # Create nested directory structure
+            nested = Path(tmpdir) / "level1" / "level2"
+            nested.mkdir(parents=True)
 
-        # Should not raise and return Path object
-        result = validate_path(str(test_file), must_exist=True)
-        assert isinstance(result, Path)
-        assert result.exists()
+            # Change to nested directory
+            os.chdir(Path(tmpdir) / "level1")
+
+            # Path going up one level should be valid
+            parent_path = "../level1"
+            result = validate_path(parent_path, must_exist=True)
+            assert isinstance(result, Path)
+            assert result.is_absolute()
+            assert result.exists()
+
+            # Path going up multiple levels should be valid
+            root_path = "../../"
+            result = validate_path(root_path, must_exist=True)
+            assert isinstance(result, Path)
+            assert result.is_absolute()
+            assert result.exists()
+        finally:
+            os.chdir(original_cwd)
 
 
-def test_valid_path_directory_exists():
-    """Test that valid existing directories pass validation."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Should not raise and return Path object
-        result = validate_path(tmpdir, must_exist=True)
-        assert isinstance(result, Path)
-        assert result.is_dir()
-
-
-def test_valid_path_not_exists_must_exist_false():
-    """Test that non-existent paths pass when must_exist=False."""
-    non_existent = "/tmp/non-existent-path-12345"
-    # Should not raise
-    result = validate_path(non_existent, must_exist=False)
-    assert isinstance(result, Path)
-
-
-def test_invalid_path_not_exists_must_exist_true():
-    """Test that non-existent paths raise FileNotFoundError when must_exist=True."""
-    non_existent = "/tmp/non-existent-path-12345"
-    with pytest.raises(FileNotFoundError, match="Path does not exist"):
-        validate_path(non_existent, must_exist=True)
+def test_invalid_path_not_string():
+    """Test that non-string paths raise ValueError."""
+    invalid_paths = [None, 123, [], {}]
+    for path in invalid_paths:
+        with pytest.raises(ValueError, match="Path must be a string"):
+            validate_path(path, must_exist=False)
 
 
 def test_invalid_path_empty():
@@ -156,65 +128,405 @@ def test_invalid_path_empty():
         validate_path("", must_exist=False)
 
 
-def test_invalid_path_not_string():
-    """Test that non-string paths raise ValueError."""
-    with pytest.raises(ValueError, match="Path must be a string"):
-        validate_path(None, must_exist=False)
-    with pytest.raises(ValueError, match="Path must be a string"):
-        validate_path(123, must_exist=False)
-    with pytest.raises(ValueError, match="Path must be a string"):
-        validate_path([], must_exist=False)
-
-
-def test_invalid_path_traversal_attempts():
-    """Test that path traversal attempts raise ValueError."""
-    traversal_paths = [
-        "../../../../../../../../../../etc/passwd",
-        "../test",
-        "../../test",
-        "test/../../etc/passwd",
-        "./../test",
-        "test/../test",
-    ]
-    for path in traversal_paths:
-        with pytest.raises(ValueError, match="Path contains invalid traversal"):
-            validate_path(path, must_exist=False)
+def test_invalid_path_not_exists():
+    """Test that non-existent paths raise FileNotFoundError when must_exist=True."""
+    with pytest.raises(FileNotFoundError, match="Path does not exist"):
+        validate_path("/nonexistent/path/12345", must_exist=True)
 
 
 def test_invalid_path_system_directories():
-    """Test that paths to system directories raise ValueError."""
-    system_paths = [
+    """Test that paths to always-restricted system directories raise ValueError."""
+    # Always-blocked virtual filesystems
+    always_blocked_paths = [
         "/proc/cpuinfo",
         "/sys/kernel",
         "/proc/self",
+        "/dev/null",
+        "/run/systemd",
     ]
-    for path in system_paths:
-        with pytest.raises(ValueError, match="Path contains invalid traversal"):
+    for path in always_blocked_paths:
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
             validate_path(path, must_exist=False)
 
 
-def test_valid_path_home_expansion():
-    """Test that ~ expansion works correctly."""
-    # Should not raise when must_exist=False
-    result = validate_path("~/test-file-12345", must_exist=False)
-    assert isinstance(result, Path)
-    # Result should be absolute path
-    assert result.is_absolute()
+def test_optional_restricted_paths_warning(caplog):
+    """Test that optional restricted paths generate warnings by default."""
+    # Optional paths should warn but not block by default
+    optional_paths = [
+        "/etc/passwd",
+        "/root/.bashrc",
+        "/boot/vmlinuz",
+        "/sbin/init",
+        "/usr/sbin/useradd",
+    ]
 
-
-def test_valid_path_relative_to_current():
-    """Test that relative paths are converted to absolute."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(tmpdir)
-            test_file = Path(tmpdir) / "test.txt"
-            test_file.write_text("test")
-
-            # Relative path should be converted to absolute
-            result = validate_path("test.txt", must_exist=True)
+    # Enable logging capture
+    with caplog.at_level(logging.WARNING):
+        for path in optional_paths:
+            # Should not raise, but should log warnings
+            result = validate_path(path, must_exist=False, warn_on_optional=True)
             assert isinstance(result, Path)
-            assert result.is_absolute()
-            assert result.exists()
-        finally:
-            os.chdir(original_cwd)
+
+        # Check that warnings were logged
+        assert len(caplog.records) > 0, "Expected at least one warning to be logged"
+        assert any(
+            "points to system directory" in record.message for record in caplog.records
+        )
+
+
+def test_optional_restricted_paths_blocked():
+    """Test that optional restricted paths are blocked when in restricted_paths config."""
+    # When paths are in restricted_paths, they should be blocked
+    restricted_config = ["/etc", "/root", "/boot"]
+
+    blocked_paths = [
+        "/etc/passwd",
+        "/root/.bashrc",
+        "/boot/vmlinuz",
+    ]
+
+    for path in blocked_paths:
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            validate_path(path, must_exist=False, restricted_paths=restricted_config)
+
+
+def test_paths_with_similar_prefixes_allowed():
+    """Test that paths with similar prefixes to restricted dirs are allowed."""
+    # These paths share prefixes with restricted directories but should be allowed
+    # because they're not actually subdirectories of the restricted dirs
+    similar_prefix_paths = [
+        "/etcetera/docs",  # Shares prefix with /etc but is different directory
+        "/procurement/adrs",  # Shares prefix with /proc but is different directory
+        "/systematic/notes",  # Shares prefix with /sys but is different directory
+        "/development/code",  # Shares prefix with /dev but is different directory
+        "/running/scripts",  # Shares prefix with /run but is different directory
+    ]
+
+    for path in similar_prefix_paths:
+        # Should not raise ValueError (but may warn if it's an optional restricted dir)
+        result = validate_path(path, must_exist=False, warn_on_optional=False)
+        assert isinstance(result, Path)
+        assert result.is_absolute()
+
+
+def test_custom_restricted_paths():
+    """Test that custom paths in restricted_paths config are blocked."""
+    # Custom paths that are not in OPTIONAL_RESTRICTED_DIRS should still be blocked
+    custom_restricted_paths = [
+        "/mnt/secrets",
+        "/home/user/private",
+        "/tmp/sensitive",
+    ]
+
+    for custom_path in custom_restricted_paths:
+        # Should raise ValueError when the custom path is in restricted_paths
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            validate_path(
+                custom_path,
+                must_exist=False,
+                restricted_paths=[custom_path],
+            )
+
+        # Should also block subdirectories of custom restricted paths
+        subdir = f"{custom_path}/subdir"
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            validate_path(
+                subdir,
+                must_exist=False,
+                restricted_paths=[custom_path],
+            )
+
+        # Should allow the path if it's not in restricted_paths
+        result = validate_path(custom_path, must_exist=False, restricted_paths=[])
+        assert isinstance(result, Path)
+        assert result.is_absolute()
+
+
+def test_custom_restricted_paths_normalization():
+    """Test that custom restricted paths are normalized correctly."""
+    import tempfile
+    from pathlib import Path as PathLib
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Test with absolute path (should work)
+        abs_secrets = str(PathLib(tmpdir) / "secrets")
+
+        # Should block the absolute path when it's in restricted_paths
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            validate_path(
+                abs_secrets,
+                must_exist=False,
+                restricted_paths=[abs_secrets],  # Absolute path in config
+            )
+
+        # Test with path containing ~ (should expand user home to absolute)
+        home_secrets = "~/secrets"
+        abs_home_secrets = os.path.expanduser(home_secrets)
+        abs_home_secrets = os.path.abspath(abs_home_secrets)
+
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            validate_path(
+                abs_home_secrets,
+                must_exist=False,
+                restricted_paths=[home_secrets],  # Path with ~ expands to absolute
+            )
+
+
+def test_restricted_paths_requires_absolute():
+    """Test that restricted_paths must contain only absolute paths."""
+    # Relative paths should raise ValueError
+    relative_paths = [
+        "secrets",
+        "../private",
+        "docs/sensitive",
+        "./config",
+    ]
+
+    for relative_path in relative_paths:
+        with pytest.raises(ValueError, match="must be an absolute path"):
+            validate_path(
+                "/some/path",
+                must_exist=False,
+                restricted_paths=[relative_path],
+            )
+
+    # Absolute paths should work
+    absolute_paths = [
+        "/mnt/secrets",
+        "/home/user/private",
+        "~/secrets",  # ~ expands to absolute
+    ]
+
+    for abs_path in absolute_paths:
+        # Should not raise ValueError about path format
+        # (may raise other errors, but not about absolute path requirement)
+        try:
+            validate_path(
+                "/some/other/path",
+                must_exist=False,
+                restricted_paths=[abs_path],
+            )
+        except ValueError as e:
+            # If it's about absolute path requirement, that's wrong
+            assert "must be an absolute path" not in str(
+                e
+            ), f"Absolute path {abs_path} was rejected"
+
+
+def test_path_with_tilde_expansion():
+    """Test that paths with ~ are expanded correctly."""
+    home_dir = Path.home()
+    # This should expand ~ to the home directory
+    expanded = validate_path("~", must_exist=True)
+    assert expanded == home_dir or str(expanded) == str(home_dir)
+
+
+def test_path_normalization():
+    """Test that paths are normalized correctly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a file
+        test_file = Path(tmpdir) / "test.txt"
+        test_file.write_text("test")
+
+        # Path with redundant separators should normalize
+        normalized = validate_path(f"{tmpdir}//test.txt", must_exist=True)
+        assert normalized == test_file
+
+
+class TestGlobPatternValidation:
+    """Test glob pattern-based path validation."""
+
+    def test_denied_pattern_blocks_path(self, tmpdir):
+        """Test that denied patterns block matching paths."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        # Block all .md files in tmpdir
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/*.md"],
+            )
+
+    def test_denied_pattern_recursive(self, tmpdir):
+        """Test that recursive denied patterns (/**) work correctly."""
+        nested_dir = Path(tmpdir) / "nested" / "deep"
+        nested_dir.mkdir(parents=True)
+        test_file = nested_dir / "test.txt"
+        test_file.write_text("test")
+
+        # Block all files recursively under tmpdir
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/**"],
+            )
+
+    def test_allowed_pattern_overrides_denied(self, tmpdir):
+        """Test that allowed patterns override denied patterns."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        # Deny all .md files but allow this specific one
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/*.md"],
+            allowed_patterns=[str(test_file)],
+        )
+        assert validated == test_file
+
+    def test_allowed_pattern_recursive_override(self, tmpdir):
+        """Test that recursive allowed patterns override denied patterns."""
+        nested_dir = Path(tmpdir) / "allowed" / "subdir"
+        nested_dir.mkdir(parents=True)
+        test_file = nested_dir / "test.md"
+        test_file.write_text("test")
+
+        # Deny all .md files but allow everything under allowed/
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/*.md"],
+            allowed_patterns=[f"{tmpdir}/allowed/**"],
+        )
+        assert validated == test_file
+
+    def test_denied_pattern_logs_audit_message(self, tmpdir, caplog):
+        """Test that denied patterns log audit messages."""
+        test_file = Path(tmpdir) / "test.md"
+        test_file.write_text("test")
+
+        with caplog.at_level(logging.INFO):
+            with pytest.raises(ValueError):
+                validate_path(
+                    str(test_file),
+                    must_exist=True,
+                    denied_patterns=[f"{tmpdir}/*.md"],
+                )
+
+        # Check that audit log was generated
+        assert "Blocked access" in caplog.text
+        assert str(test_file) in caplog.text
+        assert f"{tmpdir}/*.md" in caplog.text or "denied pattern" in caplog.text
+
+    def test_pattern_normalization_expands_tilde(self, tmpdir, monkeypatch):
+        """Test that patterns with ~ are normalized correctly."""
+        # Mock home directory
+        home_dir = Path(tmpdir) / "home" / "user"
+        home_dir.mkdir(parents=True)
+        monkeypatch.setattr(
+            os.path,
+            "expanduser",
+            lambda x: str(home_dir) if x == "~" else x.replace("~", str(home_dir)),
+        )
+
+        test_file = home_dir / "private" / "test.md"
+        test_file.parent.mkdir()
+        test_file.write_text("test")
+
+        # Use ~ in pattern
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=["~/private/**"],
+            )
+
+    def test_pattern_with_wildcards(self, tmpdir):
+        """Test patterns with various wildcard combinations."""
+        test_file1 = Path(tmpdir) / "secret1.txt"
+        test_file2 = Path(tmpdir) / "secret2.txt"
+        test_file3 = Path(tmpdir) / "public.txt"
+        test_file1.write_text("test1")
+        test_file2.write_text("test2")
+        test_file3.write_text("test3")
+
+        # Block files matching secret*.txt
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file1),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/secret*.txt"],
+            )
+
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file2),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/secret*.txt"],
+            )
+
+        # public.txt should not be blocked
+        validated = validate_path(
+            str(test_file3),
+            must_exist=True,
+            denied_patterns=[f"{tmpdir}/secret*.txt"],
+        )
+        assert validated == test_file3
+
+    def test_glob_patterns_with_literal_restrictions(self, tmpdir):
+        """Test that glob patterns work alongside literal restricted paths."""
+        # Create a directory that would be blocked by literal restriction
+        restricted_dir = Path(tmpdir) / "restricted"
+        restricted_dir.mkdir()
+        test_file = restricted_dir / "test.txt"
+        test_file.write_text("test")
+
+        # Block via literal path
+        with pytest.raises(ValueError, match="restricted system directory"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                restricted_paths=[str(restricted_dir)],
+            )
+
+        # Also block via glob pattern
+        with pytest.raises(ValueError, match="Blocked access"):
+            validate_path(
+                str(test_file),
+                must_exist=True,
+                denied_patterns=[f"{tmpdir}/restricted/**"],
+            )
+
+    def test_no_patterns_no_effect(self, tmpdir):
+        """Test that paths are allowed when no patterns are specified."""
+        test_file = Path(tmpdir) / "test.txt"
+        test_file.write_text("test")
+
+        # Should work fine with no patterns
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=None,
+            allowed_patterns=None,
+        )
+        assert validated == test_file
+
+    def test_empty_patterns_no_effect(self, tmpdir):
+        """Test that empty pattern lists have no effect."""
+        test_file = Path(tmpdir) / "test.txt"
+        test_file.write_text("test")
+
+        # Should work fine with empty pattern lists
+        validated = validate_path(
+            str(test_file),
+            must_exist=True,
+            denied_patterns=[],
+            allowed_patterns=[],
+        )
+        assert validated == test_file

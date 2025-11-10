@@ -105,6 +105,13 @@ def test_get_collection_info_nonexistent(collection_service):
         collection_service.get_collection_info(non_existent_collection)
 
 
+def test_delete_collection_nonexistent(collection_service):
+    """Test that delete_collection raises CollectionNotFoundError for non-existent collection."""
+    non_existent_collection = "non-existent-collection-to-delete-12345"
+    with pytest.raises(CollectionNotFoundError):
+        collection_service.delete_collection(non_existent_collection)
+
+
 def test_load_collection(collection_service, test_collection, test_adr_dir):
     """Test that load_collection can load ADR files."""
     # Load the collection
@@ -275,9 +282,12 @@ def test_load_non_existent_collection(collection_service, test_adr_dir):
 
 
 def test_create_collection_invalid_name(collection_service):
-    """Test that create_collection raises ValueError for invalid collection name."""
+    """Test that create_collection raises InvalidCollectionNameError for invalid collection name."""
+    from src.database.port import InvalidCollectionNameError
+
     with pytest.raises(
-        ValueError, match="Invalid collection name 'invalid collection name'"
+        InvalidCollectionNameError,
+        match="Invalid collection name 'invalid collection name'",
     ):
         collection_service.create_collection(
             "invalid collection name", enable_hybrid=False
@@ -291,8 +301,16 @@ def test_load_collection_invalid_path(collection_service, test_collection):
 
 
 def test_load_collection_security_vulnerabilities(collection_service, test_collection):
-    """Test that load_collection raises ValueError for path traversal attempts."""
-    with pytest.raises(ValueError, match="Path contains invalid traversal"):
-        collection_service.load_collection(
-            test_collection, "../../../../../../../../../../etc/passwd"
-        )
+    """Test that load_collection raises ValueError for path traversal to system directories."""
+    # Test that paths resolving to always-blocked system directories are blocked
+    # /etc, /root are optional and only warn by default, so we test always-blocked ones
+    always_blocked_paths = [
+        "../../../../../../../../../../proc/cpuinfo",
+        "../../../../../../../../../../sys/kernel",
+        "../../../../../../../../../../dev/null",
+    ]
+    for path in always_blocked_paths:
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            collection_service.load_collection(test_collection, path)

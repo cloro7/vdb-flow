@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from src.cli.main import create_parser
 from src.cli.commands import CLICommands
+from src.database.port import InvalidVectorSizeError
 
 
 def test_create_parser_has_all_commands():
@@ -247,29 +248,37 @@ def test_create_collection_with_all_options():
 
 
 def test_create_collection_invalid_vector_size_zero():
-    """Test create_collection raises ValueError for zero vector size."""
+    """Test create_collection exits with SystemExit for zero vector size."""
     mock_db_client = Mock()
     commands = CLICommands(mock_db_client)
 
     commands.collection_service.create_collection = Mock(
-        side_effect=ValueError("vector_size must be positive, got 0")
+        side_effect=InvalidVectorSizeError(
+            "vector_size must be positive, got 0. Vector dimensions must be greater than zero."
+        )
     )
 
-    with pytest.raises(ValueError, match="vector_size must be positive"):
+    with pytest.raises(SystemExit) as exc_info:
         commands.create_collection("test-collection", vector_size=0)
+
+    assert exc_info.value.code == 1
 
 
 def test_create_collection_invalid_vector_size_negative():
-    """Test create_collection raises ValueError for negative vector size."""
+    """Test create_collection exits with SystemExit for negative vector size."""
     mock_db_client = Mock()
     commands = CLICommands(mock_db_client)
 
     commands.collection_service.create_collection = Mock(
-        side_effect=ValueError("vector_size must be positive, got -256")
+        side_effect=InvalidVectorSizeError(
+            "vector_size must be positive, got -256. Vector dimensions must be greater than zero."
+        )
     )
 
-    with pytest.raises(ValueError, match="vector_size must be positive"):
+    with pytest.raises(SystemExit) as exc_info:
         commands.create_collection("test-collection", vector_size=-256)
+
+    assert exc_info.value.code == 1
 
 
 def test_delete_collection():
@@ -413,7 +422,7 @@ def test_main_create_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "create", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "create", "test-collection"]):
         main()
 
     # Verify database was initialized and create_collection was called with defaults
@@ -436,7 +445,7 @@ def test_main_create_command_with_options(mock_get_commands):
     with patch(
         "sys.argv",
         [
-            "vdb-manager",
+            "vdb-flow",
             "create",
             "test-collection",
             "--distance",
@@ -465,7 +474,7 @@ def test_main_delete_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "delete", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "delete", "test-collection"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -482,7 +491,7 @@ def test_main_list_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "list"]):
+    with patch("sys.argv", ["vdb-flow", "list"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -499,7 +508,7 @@ def test_main_info_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "info", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "info", "test-collection"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -516,7 +525,7 @@ def test_main_load_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "load", "test-collection", "/path/to/adrs"]):
+    with patch("sys.argv", ["vdb-flow", "load", "test-collection", "/path/to/adrs"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -531,7 +540,7 @@ def test_main_invalid_command(mock_exit):
     from src.cli.main import main
 
     # Mock sys.argv with invalid command
-    with patch("sys.argv", ["vdb-manager", "invalid-command"]):
+    with patch("sys.argv", ["vdb-flow", "invalid-command"]):
         try:
             main()
         except SystemExit:
@@ -557,7 +566,7 @@ def test_main_version_command(mock_show_version):
     from src.cli.main import main
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "version"]):
+    with patch("sys.argv", ["vdb-flow", "version"]):
         main()
 
     # Verify version was shown

@@ -1,12 +1,28 @@
 """Database module following hexagonal architecture."""
 
 from typing import Optional, Callable, Dict, List
-from .port import VectorDatabase, CollectionNotFoundError, VectorDatabaseError
+from .port import (
+    VectorDatabase,
+    VectorDatabaseError,
+    CollectionNotFoundError,
+    CollectionAlreadyExistsError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+    DatabaseConnectionError,
+    DatabaseTimeoutError,
+    DatabaseOperationError,
+)
 
 __all__ = [
     "VectorDatabase",
     "VectorDatabaseError",
     "CollectionNotFoundError",
+    "CollectionAlreadyExistsError",
+    "InvalidCollectionNameError",
+    "InvalidVectorSizeError",
+    "DatabaseConnectionError",
+    "DatabaseTimeoutError",
+    "DatabaseOperationError",
     "create_vector_database",
     "register_adapter",
     "get_available_adapters",
@@ -53,7 +69,7 @@ def get_available_adapters() -> List[str]:
 
 def _get_entry_points():
     """
-    Get entry points for vdb_manager.adapters, handling Python version differences.
+    Get entry points for vdb_flow.adapters, handling Python version differences.
 
     Returns:
         Iterable of entry points, or empty list if not available
@@ -69,12 +85,12 @@ def _get_entry_points():
 
     try:
         # Python 3.10+ supports group= keyword argument
-        return entry_points(group="vdb_manager.adapters")
+        return entry_points(group="vdb_flow.adapters")
     except TypeError:
         # Fall back to Python 3.8/3.9 API
         try:
             all_entry_points = entry_points()
-            return all_entry_points.get("vdb_manager.adapters", [])
+            return all_entry_points.get("vdb_flow.adapters", [])
         except Exception:
             return []
 
@@ -101,7 +117,7 @@ def _load_entry_point_adapters():
 
     This allows third-party packages to register adapters without modifying
     core code. Entry points should be defined in pyproject.toml under:
-    [project.entry-points."vdb_manager.adapters"]
+    [project.entry-points."vdb_flow.adapters"]
 
     The entry point should be a callable that performs the registration,
     typically by calling register_adapter().
