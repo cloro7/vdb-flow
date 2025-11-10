@@ -6,8 +6,14 @@ import time
 import logging
 from typing import Optional
 
-from ..database.port import VectorDatabase, CollectionNotFoundError
-from ..database.adapters.qdrant import QdrantNetworkError, QdrantError
+from ..database.port import (
+    CollectionNotFoundError,
+    DatabaseConnectionError,
+    DatabaseTimeoutError,
+    DatabaseOperationError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+)
 from ..services.collection import CollectionService
 
 logger = logging.getLogger(__name__)
@@ -16,14 +22,14 @@ logger = logging.getLogger(__name__)
 class CLICommands:
     """Command handlers for CLI operations."""
 
-    def __init__(self, db_client: VectorDatabase):
+    def __init__(self, collection_service: CollectionService):
         """
         Initialize CLI commands.
 
         Args:
-            db_client: Vector database client
+            collection_service: Collection service instance
         """
-        self.collection_service = CollectionService(db_client)
+        self.collection_service = collection_service
 
     def create_collection(
         self,
@@ -52,7 +58,17 @@ class CLICommands:
                 vector_size=vector_size,
             )
             logger.info(f"Created collection: {created_collection}")
-        except (QdrantNetworkError, QdrantError) as e:
+        except InvalidVectorSizeError as e:
+            logger.error(f"Invalid vector size: {e}")
+            sys.exit(1)
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
         except ValueError as e:
@@ -67,7 +83,14 @@ class CLICommands:
         except CollectionNotFoundError as e:
             logger.error(f"Collection not found: {e}")
             sys.exit(1)
-        except (QdrantNetworkError, QdrantError) as e:
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
@@ -76,7 +99,11 @@ class CLICommands:
         try:
             self.collection_service.clear_collection(collection_name)
             logger.info(f"Cleared collection: {collection_name}")
-        except (QdrantNetworkError, QdrantError) as e:
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
@@ -85,7 +112,11 @@ class CLICommands:
         try:
             collections = self.collection_service.list_collections()
             logger.info(f"Listed collections: {collections}")
-        except (QdrantNetworkError, QdrantError) as e:
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
@@ -96,7 +127,12 @@ class CLICommands:
                 collection_name
             )
             logger.info(f"Collection info: {collection_info}")
-        except (QdrantNetworkError, QdrantError) as e:
+        except (
+            CollectionNotFoundError,
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
@@ -123,7 +159,17 @@ class CLICommands:
 
         try:
             self.collection_service.load_collection(collection_name, adr_path)
-        except (QdrantNetworkError, QdrantError) as e:
+        except CollectionNotFoundError as e:
+            logger.error(f"Collection not found: {e}")
+            sys.exit(1)
+        except InvalidCollectionNameError as e:
+            logger.error(f"Invalid collection name: {e}")
+            sys.exit(1)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Database error: {e}")
             sys.exit(1)
         except ValueError as e:

@@ -18,6 +18,42 @@ class CollectionNotFoundError(VectorDatabaseError):
     pass
 
 
+class CollectionAlreadyExistsError(VectorDatabaseError):
+    """Exception raised when attempting to create a collection that already exists."""
+
+    pass
+
+
+class InvalidCollectionNameError(VectorDatabaseError):
+    """Exception raised when a collection name is invalid."""
+
+    pass
+
+
+class InvalidVectorSizeError(VectorDatabaseError):
+    """Exception raised when vector size is invalid."""
+
+    pass
+
+
+class DatabaseConnectionError(VectorDatabaseError):
+    """Exception raised when unable to connect to the database."""
+
+    pass
+
+
+class DatabaseTimeoutError(VectorDatabaseError):
+    """Exception raised when a database operation times out."""
+
+    pass
+
+
+class DatabaseOperationError(VectorDatabaseError):
+    """Exception raised for general database operation failures."""
+
+    pass
+
+
 class VectorDatabase(ABC):
     """Abstract interface for vector database operations (port)."""
 

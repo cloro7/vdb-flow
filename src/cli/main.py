@@ -4,8 +4,7 @@ import argparse
 import logging
 import sys
 
-from ..config import get_config
-from ..database import create_vector_database
+from ..composition import get_container
 from .commands import CLICommands
 
 
@@ -117,18 +116,12 @@ def create_parser() -> argparse.ArgumentParser:
 
 def _get_commands() -> CLICommands:
     """
-    Lazy initialization of CLI commands with database client.
+    Lazy initialization of CLI commands using composition root.
 
     Only initializes the database stack when actually needed.
     """
-    config = get_config()
-    db_client = create_vector_database(
-        db_type=config.database_type,
-        qdrant_url=(
-            config.qdrant_url if config.database_type.lower() == "qdrant" else None
-        ),
-    )
-    return CLICommands(db_client)
+    container = get_container()
+    return CLICommands(container.collection_service)
 
 
 def main():

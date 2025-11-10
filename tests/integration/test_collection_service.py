@@ -282,9 +282,12 @@ def test_load_non_existent_collection(collection_service, test_adr_dir):
 
 
 def test_create_collection_invalid_name(collection_service):
-    """Test that create_collection raises ValueError for invalid collection name."""
+    """Test that create_collection raises InvalidCollectionNameError for invalid collection name."""
+    from src.database.port import InvalidCollectionNameError
+
     with pytest.raises(
-        ValueError, match="Invalid collection name 'invalid collection name'"
+        InvalidCollectionNameError,
+        match="Invalid collection name 'invalid collection name'",
     ):
         collection_service.create_collection(
             "invalid collection name", enable_hybrid=False

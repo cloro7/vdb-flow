@@ -10,7 +10,15 @@ from typing import List, Dict, Any, Callable, Optional, Tuple
 from ...constants import DEFAULT_MAX_WORKERS, DEFAULT_VECTOR_SIZE
 from ...rate_limiter import db_rate_limiter
 from ...validation import validate_collection_name, validate_distance_metric
-from ..port import VectorDatabase, CollectionNotFoundError
+from ..port import (
+    VectorDatabase,
+    CollectionNotFoundError,
+    DatabaseConnectionError,
+    DatabaseTimeoutError,
+    DatabaseOperationError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+)
 from .. import register_adapter
 
 logger = logging.getLogger(__name__)
@@ -88,7 +96,9 @@ class QdrantVectorDatabase(VectorDatabase):
             Tuple of (response object, success boolean)
 
         Raises:
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
         """
         # Apply rate limiting before making request
         db_rate_limiter.acquire()
@@ -102,25 +112,25 @@ class QdrantVectorDatabase(VectorDatabase):
             return resp, True
         except requests.exceptions.Timeout as e:
             logger.error(f"Request timeout for {method} {url}: {e}")
-            raise QdrantNetworkError(
+            raise DatabaseTimeoutError(
                 f"Connection timeout: Unable to reach Qdrant at {self.qdrant_url}. "
                 f"Please check that Qdrant is running and accessible."
             ) from e
         except requests.exceptions.ConnectionError as e:
             logger.error(f"Connection error for {method} {url}: {e}")
-            raise QdrantNetworkError(
+            raise DatabaseConnectionError(
                 f"Connection failed: Unable to connect to Qdrant at {self.qdrant_url}. "
                 f"Please check that Qdrant is running and the URL is correct."
             ) from e
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error for {method} {url}: {e}")
-            raise QdrantNetworkError(
+            raise DatabaseOperationError(
                 f"Request failed: Error communicating with Qdrant at {self.qdrant_url}. "
                 f"Error: {e}"
             ) from e
         except Exception as e:
             logger.error(f"Unexpected error for {method} {url}: {e}")
-            raise QdrantNetworkError(
+            raise DatabaseOperationError(
                 f"Unexpected error communicating with Qdrant at {self.qdrant_url}: {e}"
             ) from e
 
@@ -138,7 +148,7 @@ class QdrantVectorDatabase(VectorDatabase):
             url = f"{self.qdrant_url}/collections/{collection_name}"
             resp, _ = self._make_request("get", url)
             return resp.status_code == 200
-        except QdrantNetworkError:
+        except (DatabaseConnectionError, DatabaseTimeoutError):
             # If we can't connect, assume it doesn't exist
             return False
 
@@ -162,7 +172,9 @@ class QdrantVectorDatabase(VectorDatabase):
             Collection information
 
         Raises:
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
             ValueError: If collection already exists or validation fails
         """
         # Validate inputs
@@ -216,11 +228,18 @@ class QdrantVectorDatabase(VectorDatabase):
                 )
                 logger.error(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            InvalidVectorSizeError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error creating collection: {e}")
-            raise QdrantError(f"Failed to create collection: {e}") from e
+            raise DatabaseOperationError(f"Failed to create collection: {e}") from e
 
     def delete_collection(self, collection_name: str) -> None:
         """
@@ -230,7 +249,9 @@ class QdrantVectorDatabase(VectorDatabase):
             collection_name: Name of the collection to delete
 
         Raises:
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
             QdrantCollectionNotFoundError: If collection doesn't exist
             ValueError: If collection name is invalid
         """
@@ -260,11 +281,18 @@ class QdrantVectorDatabase(VectorDatabase):
                 error_msg = f"Failed to delete {collection_name}: {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantCollectionNotFoundError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            CollectionNotFoundError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error deleting collection: {e}")
-            raise QdrantError(f"Failed to delete collection: {e}") from e
+            raise DatabaseOperationError(f"Failed to delete collection: {e}") from e
 
     def clear_collection(self, collection_name: str) -> Dict[str, Any]:
         """
@@ -277,10 +305,15 @@ class QdrantVectorDatabase(VectorDatabase):
             Operation result
 
         Raises:
-            QdrantNetworkError: If network request fails
-            ValueError: If collection name is invalid
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
+            InvalidCollectionNameError: If collection name is invalid
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         url = f"{self.qdrant_url}/collections/{collection_name}/points/delete"
         try:
             resp, _ = self._make_request("post", url, json={"filter": {}})
@@ -291,11 +324,17 @@ class QdrantVectorDatabase(VectorDatabase):
                 error_msg = f"Failed to clear collection '{collection_name}': {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error clearing collection: {e}")
-            raise QdrantError(f"Failed to clear collection: {e}") from e
+            raise DatabaseOperationError(f"Failed to clear collection: {e}") from e
 
     def list_collections(self) -> List[Dict[str, Any]]:
         """
@@ -305,7 +344,9 @@ class QdrantVectorDatabase(VectorDatabase):
             List of collection information
 
         Raises:
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
         """
         url = f"{self.qdrant_url}/collections"
         try:
@@ -317,12 +358,16 @@ class QdrantVectorDatabase(VectorDatabase):
                     f"Failed to list collections: {resp.status_code} — {resp.text}"
                 )
                 logger.warning(error_msg)
-                raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantError):
+                raise DatabaseOperationError(error_msg)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error listing collections: {e}")
-            raise QdrantError(f"Failed to list collections: {e}") from e
+            raise DatabaseOperationError(f"Failed to list collections: {e}") from e
 
     def get_collection_info(self, collection_name: str) -> Dict[str, Any]:
         """
@@ -336,10 +381,15 @@ class QdrantVectorDatabase(VectorDatabase):
 
         Raises:
             CollectionNotFoundError: If collection doesn't exist
-            QdrantNetworkError: If network request fails
-            ValueError: If collection name is invalid
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
+            InvalidCollectionNameError: If collection name is invalid
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         url = f"{self.qdrant_url}/collections/{collection_name}"
         try:
             resp, _ = self._make_request("get", url)
@@ -356,11 +406,18 @@ class QdrantVectorDatabase(VectorDatabase):
                 )
                 logger.warning(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantCollectionNotFoundError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            CollectionNotFoundError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error getting collection info: {e}")
-            raise QdrantError(f"Failed to get collection info: {e}") from e
+            raise DatabaseOperationError(f"Failed to get collection info: {e}") from e
 
     def _generate_point_id(self, file_name: str, chunk_id: int) -> str:
         """
@@ -414,12 +471,18 @@ class QdrantVectorDatabase(VectorDatabase):
             - is_match: True if point exists and matches expected content
 
         Raises:
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
         """
         check_url = f"{self.qdrant_url}/collections/{collection}/points/{point_id}"
         try:
             check_resp, _ = self._make_request("get", check_url)
-        except QdrantNetworkError as e:
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(f"Network error checking point existence: {e}")
             raise
 
@@ -457,7 +520,12 @@ class QdrantVectorDatabase(VectorDatabase):
                 f"Collection '{collection}' detected as {'hybrid' if is_hybrid else 'standard'} collection."
             )
             return is_hybrid
-        except (QdrantError, QdrantNetworkError) as e:
+        except (
+            QdrantError,
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+        ) as e:
             logger.error(
                 f"Failed to detect hybrid status for collection '{collection}': {e}. "
                 f"Assuming standard collection."
@@ -600,7 +668,10 @@ class QdrantVectorDatabase(VectorDatabase):
         Raises:
             ValueError: If collection name is invalid
         """
-        validate_collection_name(collection)
+        try:
+            validate_collection_name(collection)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
 
         # Generate point ID and check if it already exists
         point_id = self._generate_point_id(file_name, chunk_id)
@@ -650,11 +721,17 @@ class QdrantVectorDatabase(VectorDatabase):
                 raise QdrantError(error_msg)
             else:
                 logger.info(f"Uploaded chunk {file_name}-{chunk_id}")
-        except (QdrantNetworkError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error uploading chunk: {e}")
-            raise QdrantError(f"Failed to upload chunk: {e}") from e
+            raise DatabaseOperationError(f"Failed to upload chunk: {e}") from e
 
     def _prepare_points_parallel(
         self,
@@ -771,7 +848,9 @@ class QdrantVectorDatabase(VectorDatabase):
 
         Raises:
             QdrantError: If batch upload fails
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
         """
         data = {"points": points}
         upload_url = f"{self.qdrant_url}/collections/{collection}/points?wait=true"
@@ -786,11 +865,17 @@ class QdrantVectorDatabase(VectorDatabase):
                 raise QdrantError(error_msg)
             else:
                 logger.debug(f"Successfully uploaded batch of {num_chunks} chunks")
-        except (QdrantNetworkError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error in batch upload: {e}")
-            raise QdrantError(f"Failed to upload batch: {e}") from e
+            raise DatabaseOperationError(f"Failed to upload batch: {e}") from e
 
     def upload_chunks_batch(
         self,
@@ -810,10 +895,15 @@ class QdrantVectorDatabase(VectorDatabase):
 
         Raises:
             QdrantError: If batch upload fails
-            QdrantNetworkError: If network request fails
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
             ValueError: If collection name is invalid
         """
-        validate_collection_name(collection)
+        try:
+            validate_collection_name(collection)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         if not chunks:
             return
 
@@ -872,11 +962,17 @@ class QdrantVectorDatabase(VectorDatabase):
                 error_msg = f"Failed to search: {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantError):
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
             raise
         except Exception as e:
             logger.error(f"Unexpected error searching: {e}")
-            raise QdrantError(f"Failed to search: {e}") from e
+            raise DatabaseOperationError(f"Failed to search: {e}") from e
 
 
 # Register the Qdrant adapter with the registry
