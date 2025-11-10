@@ -8,8 +8,9 @@
 
 # Database configuration
 database:
-  type: "qdrant"  # Options: "qdrant" (more backends coming soon)
-  url: "http://localhost:6333"  # Qdrant server URL
+  # Options: "qdrant" (production, requires Qdrant server), "inmemory" (testing/dev, no external dependencies)
+  type: "qdrant"
+  url: "http://localhost:6333"  # Qdrant server URL (only used when type is "qdrant")
 
 # Ollama embedding service configuration
 ollama:

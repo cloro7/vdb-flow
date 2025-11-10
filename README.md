@@ -453,10 +453,38 @@ The entry point function will be called automatically when `create_vector_databa
 
 ### Available Adapters
 
+**Built-in Adapters:**
+
+- **`qdrant`**: Production-ready vector database adapter (default). Requires a running Qdrant server.
+- **`inmemory`**: In-memory adapter for testing and development. No external dependencies, but data is not persisted.
+
 You can check which adapters are available at runtime:
 
 ```python
 from src.database import get_available_adapters
 
-print(get_available_adapters())  # ['qdrant', ...]
+print(get_available_adapters())  # ['qdrant', 'inmemory', ...]
 ```
+
+**Using the In-Memory Adapter:**
+
+The in-memory adapter is useful for:
+- Testing without external dependencies
+- Development and prototyping
+- Demonstrating the pluggable architecture
+
+To use it, set the database type in your config:
+
+```yaml
+database:
+  type: "inmemory"
+```
+
+Or via environment variable:
+
+```bash
+export VECTOR_DB_TYPE=inmemory
+vdb-manager create test-collection
+```
+
+Note: Data stored in the in-memory adapter is lost when the process exits. This adapter is not suitable for production use.
