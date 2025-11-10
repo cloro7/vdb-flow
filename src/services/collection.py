@@ -3,7 +3,10 @@
 import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from ..config import Config
 
 from tqdm import tqdm
 
@@ -20,7 +23,6 @@ from ..validation import (
     validate_path,
 )
 from .text_processing import clean_text, chunk_text
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ class CollectionService:
         self,
         db_client: VectorDatabase,
         embedding_func: Optional[Callable[[str], List[float]]] = None,
+        config: Optional["Config"] = None,
     ):
         """
         Initialize collection service.
@@ -42,9 +45,25 @@ class CollectionService:
         Args:
             db_client: Vector database client implementing VectorDatabase port
             embedding_func: Function to generate embeddings. If None, will use default.
+            config: Optional Config instance. If None, will use default (for backward compatibility).
         """
         self.db_client = db_client
         self._embedding_func = embedding_func
+        self._config = config
+
+    def _get_config(self) -> "Config":
+        """
+        Get configuration instance, using injected config or falling back to default.
+
+        Returns:
+            Config instance
+        """
+        if self._config is not None:
+            return self._config
+        # Fallback to global config for backward compatibility
+        from ..config import get_config
+
+        return get_config()
 
     def _get_embedding(self, text: str) -> List[float]:
         """
@@ -119,8 +138,6 @@ class CollectionService:
             InvalidCollectionNameError: If collection name is invalid
             InvalidVectorSizeError: If vector size is invalid
         """
-        from ..config import get_config
-
         try:
             validate_collection_name(collection_name)
         except ValueError as e:
@@ -130,7 +147,7 @@ class CollectionService:
 
         # Get vector size from config if not provided
         if vector_size is None:
-            config = get_config()
+            config = self._get_config()
             vector_size = config.vector_size
 
         # Validate vector size is positive
@@ -357,7 +374,15 @@ class CollectionService:
             validate_collection_name(collection_name)
         except ValueError as e:
             raise InvalidCollectionNameError(str(e)) from e
-        validated_path = validate_path(path, must_exist=True)
+        # Get restricted paths from config if available
+        config = self._get_config()
+        restricted_paths = getattr(config, "restricted_paths", None)
+        validated_path = validate_path(
+            path,
+            must_exist=True,
+            restricted_paths=restricted_paths,
+            warn_on_optional=True,
+        )
 
         # Validate that collection exists
         self._validate_collection_exists(collection_name)

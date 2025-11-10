@@ -216,6 +216,7 @@ Then customize the settings as needed. The configuration file supports:
 - **Ollama settings**: API URL, model name, and timeout
 - **Text processing**: Chunk size, overlap, and max text length
 - **Rate limiting**: Database and embedding API request rate limits, with option to disable (development only)
+- **Security settings**: Custom restricted paths to block access to specific directories
 
 ### Environment Variables
 
@@ -260,9 +261,37 @@ VDB Manager implements multiple security measures to protect against common vuln
 **Path Validation**
 - All file paths are validated and normalized before use
 - Prevents directory traversal attacks (e.g., `../../../etc/passwd`)
-- Blocks access to sensitive system directories (`/proc`, `/sys`)
+- **Always blocks** access to virtual filesystem directories (`/proc`, `/sys`, `/dev`, `/run`, `/var/run`) - these can leak kernel memory or device nodes
+- **Optionally blocks** system directories (`/etc`, `/root`, `/boot`, `/sbin`, `/usr/sbin`) - these generate warnings by default but can be blocked via config
+- **Custom restricted paths**: You can configure any custom directory path to block via `security.restricted_paths` in your config file
+- Supports path normalization (expands `~`, resolves relative paths, handles `..` segments)
 - Validates path existence when required
-- Expands user home directory (`~`) safely
+- Uses path boundary checks to prevent false positives (e.g., `/etcetera` is allowed even though it shares a prefix with `/etc`)
+
+**Custom Restricted Paths Configuration**
+
+You can add custom directories to block by configuring `security.restricted_paths` in your config file:
+
+```yaml
+security:
+  restricted_paths:
+    - /etc                    # System configuration directory
+    - /root                   # Root user home directory
+    - /mnt/secrets            # Custom restricted directory
+    - ~/private               # User's private directory (expands to /home/user/private)
+    - /var/sensitive          # Another custom restricted directory
+```
+
+**Important Security Requirement**: All paths in `restricted_paths` must be **absolute paths**. Relative paths are not allowed because they would resolve differently depending on where the CLI is executed, making security rules non-deterministic and potentially ineffective.
+
+You can use:
+- **Absolute paths**: `/mnt/secrets`, `/var/sensitive`
+- **Paths with `~`**: `~/private` (expands to `/home/user/private` - becomes absolute)
+
+You cannot use:
+- **Relative paths**: `secrets`, `../private`, `./config` (will raise `ValueError`)
+
+All paths are normalized (expanded, resolved) before being checked. Paths that exactly match or are subdirectories of any restricted path will be blocked.
 
 ### Rate Limiting
 

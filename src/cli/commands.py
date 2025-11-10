@@ -47,8 +47,7 @@ class CLICommands:
             enable_hybrid: Enable hybrid search with sparse vectors
             vector_size: Size of embedding vectors (defaults to config value)
 
-        Raises:
-            ValueError: If vector_size is invalid (non-positive)
+        Exits with code 1 on validation or database errors.
         """
         try:
             created_collection = self.collection_service.create_collection(
@@ -73,7 +72,7 @@ class CLICommands:
             sys.exit(1)
         except ValueError as e:
             logger.error(str(e))
-            raise
+            sys.exit(1)
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete an existing collection."""

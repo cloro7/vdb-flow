@@ -222,12 +222,19 @@ class QdrantVectorDatabase(VectorDatabase):
                 self._hybrid_collections_cache[collection_name] = enable_hybrid
                 logger.debug(f"Created collection '{collection_name}'.")
                 return resp.json()
+            elif resp.status_code == 400:
+                # Bad request - likely validation error from Qdrant
+                error_msg = (
+                    f"Failed to create collection: Invalid request — {resp.text}"
+                )
+                logger.error(error_msg)
+                raise DatabaseOperationError(error_msg)
             else:
                 error_msg = (
                     f"Failed to create collection: {resp.status_code} — {resp.text}"
                 )
                 logger.error(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -280,7 +287,7 @@ class QdrantVectorDatabase(VectorDatabase):
             else:
                 error_msg = f"Failed to delete {collection_name}: {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -323,7 +330,7 @@ class QdrantVectorDatabase(VectorDatabase):
             else:
                 error_msg = f"Failed to clear collection '{collection_name}': {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -405,7 +412,7 @@ class QdrantVectorDatabase(VectorDatabase):
                     f"Failed to get collection info: {resp.status_code} — {resp.text}"
                 )
                 logger.warning(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -718,7 +725,7 @@ class QdrantVectorDatabase(VectorDatabase):
             if not resp.ok:
                 error_msg = f"Upload failed for {file_name}-{chunk_id}: {resp.status_code} — {resp.text}"
                 logger.error(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
             else:
                 logger.info(f"Uploaded chunk {file_name}-{chunk_id}")
         except (
@@ -847,7 +854,6 @@ class QdrantVectorDatabase(VectorDatabase):
             num_chunks: Number of chunks being uploaded (for error messages)
 
         Raises:
-            QdrantError: If batch upload fails
             DatabaseConnectionError: If unable to connect to Qdrant
             DatabaseTimeoutError: If request times out
             DatabaseOperationError: If operation fails
@@ -862,7 +868,7 @@ class QdrantVectorDatabase(VectorDatabase):
                     f"{resp.status_code} — {resp.text}"
                 )
                 logger.error(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
             else:
                 logger.debug(f"Successfully uploaded batch of {num_chunks} chunks")
         except (
@@ -894,11 +900,10 @@ class QdrantVectorDatabase(VectorDatabase):
             progress_callback: Optional callback function called with number of processed chunks
 
         Raises:
-            QdrantError: If batch upload fails
             DatabaseConnectionError: If unable to connect to Qdrant
             DatabaseTimeoutError: If request times out
             DatabaseOperationError: If operation fails
-            ValueError: If collection name is invalid
+            InvalidCollectionNameError: If collection name is invalid
         """
         try:
             validate_collection_name(collection)
@@ -942,9 +947,15 @@ class QdrantVectorDatabase(VectorDatabase):
             List of search results with score and payload
 
         Raises:
-            ValueError: If collection name is invalid
+            InvalidCollectionNameError: If collection name is invalid
+            DatabaseConnectionError: If unable to connect to Qdrant
+            DatabaseTimeoutError: If request times out
+            DatabaseOperationError: If operation fails
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         search_url = f"{self.qdrant_url}/collections/{collection_name}/points/search"
         search_data = {
             "vector": vector,
@@ -961,7 +972,7 @@ class QdrantVectorDatabase(VectorDatabase):
             else:
                 error_msg = f"Failed to search: {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
-                raise QdrantError(error_msg)
+                raise DatabaseOperationError(error_msg)
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,

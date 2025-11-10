@@ -3,7 +3,7 @@
 import os
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from .constants import (
     DEFAULT_CHUNK_SIZE,
@@ -36,6 +36,12 @@ DEFAULT_CONFIG = {
         "disabled": False,  # Set to True to disable rate limiting (development only)
         "db_requests_per_second": DEFAULT_DB_RATE_LIMIT,  # Database requests per second
         "embedding_requests_per_second": DEFAULT_EMBEDDING_RATE_LIMIT,  # Embedding API requests per second
+    },
+    "security": {
+        # Optional list of additional system directories to block
+        # Always-blocked: /proc, /sys, /dev, /run, /var/run (virtual filesystems)
+        # Optional (can be added here to block): /etc, /root, /boot, /sbin, /usr/sbin
+        "restricted_paths": [],
     },
 }
 
@@ -234,6 +240,16 @@ class Config:
         return self._config.get("rate_limiting", {}).get(
             "embedding_requests_per_second", DEFAULT_EMBEDDING_RATE_LIMIT
         )
+
+    @property
+    def restricted_paths(self) -> List[str]:
+        """
+        Get list of additional restricted paths from config.
+
+        Returns:
+            List of paths to block (in addition to always-blocked virtual filesystems)
+        """
+        return self._config.get("security", {}).get("restricted_paths", [])
 
 
 # Global config instance

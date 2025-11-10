@@ -64,7 +64,9 @@ class ApplicationContainer:
         """
         if self._collection_service is None:
             self._collection_service = CollectionService(
-                self.db_client, embedding_func=self.get_embedding_func()
+                self.db_client,
+                embedding_func=self.get_embedding_func(),
+                config=self._config,
             )
         return self._collection_service
 
