@@ -422,7 +422,7 @@ def test_main_create_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "create", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "create", "test-collection"]):
         main()
 
     # Verify database was initialized and create_collection was called with defaults
@@ -445,7 +445,7 @@ def test_main_create_command_with_options(mock_get_commands):
     with patch(
         "sys.argv",
         [
-            "vdb-manager",
+            "vdb-flow",
             "create",
             "test-collection",
             "--distance",
@@ -474,7 +474,7 @@ def test_main_delete_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "delete", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "delete", "test-collection"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -491,7 +491,7 @@ def test_main_list_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "list"]):
+    with patch("sys.argv", ["vdb-flow", "list"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -508,7 +508,7 @@ def test_main_info_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "info", "test-collection"]):
+    with patch("sys.argv", ["vdb-flow", "info", "test-collection"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -525,7 +525,7 @@ def test_main_load_command(mock_get_commands):
     mock_get_commands.return_value = mock_commands
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "load", "test-collection", "/path/to/adrs"]):
+    with patch("sys.argv", ["vdb-flow", "load", "test-collection", "/path/to/adrs"]):
         main()
 
     mock_get_commands.assert_called_once()
@@ -540,7 +540,7 @@ def test_main_invalid_command(mock_exit):
     from src.cli.main import main
 
     # Mock sys.argv with invalid command
-    with patch("sys.argv", ["vdb-manager", "invalid-command"]):
+    with patch("sys.argv", ["vdb-flow", "invalid-command"]):
         try:
             main()
         except SystemExit:
@@ -566,7 +566,7 @@ def test_main_version_command(mock_show_version):
     from src.cli.main import main
 
     # Mock sys.argv
-    with patch("sys.argv", ["vdb-manager", "version"]):
+    with patch("sys.argv", ["vdb-flow", "version"]):
         main()
 
     # Verify version was shown

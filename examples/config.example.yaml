@@ -1,9 +1,9 @@
-# VDB Manager Configuration Example
+# VDB Flow Configuration Example
 #
-# Copy this file to ~/.vdb-manager/config.yaml or ~/.vdb-manager/config.yml
+# Copy this file to ~/.vdb-flow/config.yaml or ~/.vdb-flow/config.yml
 # and customize as needed. Both extensions are supported, with config.yaml
 # taking precedence if both exist.
-# The ~/.vdb-manager/ directory will be created automatically on first run.
+# The ~/.vdb-flow/ directory will be created automatically on first run.
 # You can also override any setting using environment variables.
 
 # Database configuration
