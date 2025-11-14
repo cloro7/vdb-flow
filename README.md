@@ -106,6 +106,22 @@ bandit -q -r src
 
 These checks ensure dependency vulnerabilities and common Python security issues are caught early.
 
+### Conventional Commits & Releases
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) so semantic version bumps stay predictable. Use [Commitizen](https://commitizen-tools.github.io/commitizen/) to craft messages:
+
+```bash
+cz commit  # interactive prompt that builds a compliant message
+```
+
+To check existing commits before pushing:
+
+```bash
+cz check --rev-range origin/main..HEAD
+```
+
+Our CI also runs `cz check` on pull requests; merge requests with non-compliant messages will fail. This policy lets us map features/fixes/breaking changes to `MAJOR.MINOR.PATCH` releases automatically.
+
 ## Usage
 
 ### CLI
