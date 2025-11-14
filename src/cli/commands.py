@@ -31,7 +31,7 @@ def _ensure_logging_configured(default_level: int = logging.INFO) -> None:
         return
     logging.basicConfig(
         level=default_level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
@@ -70,7 +70,7 @@ class CLICommands:
 
         Exits with code 1 on validation or database errors.
         """
-        logger.info(f"Creating collection '{collection_name}'...")
+        logger.debug(f"Creating collection '{collection_name}'...")
         try:
             created_collection = self.collection_service.create_collection(
                 collection_name,
@@ -104,7 +104,7 @@ class CLICommands:
         Returns:
             Success status dictionary
         """
-        logger.info(f"Deleting collection '{collection_name}'...")
+        logger.debug(f"Deleting collection '{collection_name}'...")
         try:
             self.collection_service.delete_collection(collection_name)
             logger.info(f"Successfully deleted collection '{collection_name}'")
@@ -130,7 +130,7 @@ class CLICommands:
         Returns:
             Operation result dictionary
         """
-        logger.info(f"Clearing collection '{collection_name}'...")
+        logger.debug(f"Clearing collection '{collection_name}'...")
         try:
             result = self.collection_service.clear_collection(collection_name)
             logger.info(f"Successfully cleared collection '{collection_name}'")
@@ -150,9 +150,9 @@ class CLICommands:
         Returns:
             List of collection information dictionaries
         """
+        logger.debug("Listing collections...")
         try:
             collections = self.collection_service.list_collections()
-            logger.info(f"Listing collections: {collections}")
             return collections
         except (
             DatabaseConnectionError,
@@ -169,7 +169,7 @@ class CLICommands:
         Returns:
             Collection information dictionary
         """
-        logger.info(f"Getting information for collection '{collection_name}'...")
+        logger.debug(f"Getting information for collection '{collection_name}'...")
         try:
             collection_info = self.collection_service.get_collection_info(
                 collection_name
@@ -207,12 +207,14 @@ class CLICommands:
             sys.exit(1)
 
         start_time = time.time()
-        logger.info(
-            f"Loading ADRs from {adr_path} into collection '{collection_name}' ..."
+        logger.debug(
+            f"Loading ADRs from {adr_path} into collection '{collection_name}'..."
         )
-
         try:
             self.collection_service.load_collection(collection_name, adr_path)
+            logger.info(
+                f"Successfully loaded ADRs from {adr_path} into collection '{collection_name}'"
+            )
         except CollectionNotFoundError as e:
             logger.error(f"Collection not found: {e}")
             sys.exit(1)

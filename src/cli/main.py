@@ -4,7 +4,7 @@ import argparse
 import json
 import logging
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..composition import get_container
 from ..config import get_config
@@ -23,7 +23,7 @@ def setup_logging(log_level: int = logging.INFO):
     # Configure root logger to ensure all loggers inherit the configuration
     logging.basicConfig(
         level=log_level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         force=True,  # Override any existing configuration
     )
@@ -308,52 +308,84 @@ def _format_output(data: Any, output_format: str, command: str) -> None:
             _print_json(data)
 
 
-def _log_summary(data: Any, command: str) -> None:
+def _extract_collection_name(data: Dict[str, Any], context: Dict[str, Any]) -> str:
+    """Extract collection name from data or context."""
+    return (
+        context.get("collection")
+        or data.get("collection")
+        or data.get("result", {}).get("name")
+        or data.get("name", "unknown")
+    )
+
+
+def _log_create_summary(data: Dict[str, Any], context: Dict[str, Any]) -> None:
+    """Log summary for create command."""
+    result_block = data.get("result")
+    name = None
+    vector_size = None
+    if isinstance(result_block, dict):
+        name = result_block.get("name")
+        config = result_block.get("config", {})
+        params = config.get("params", {})
+        vectors = params.get("vectors", {})
+        vector_size = vectors.get("size")
+    if not name:
+        name = _extract_collection_name(data, context)
+    if vector_size:
+        logger.info(f"Collection created: name={name}, vector_size={vector_size}")
+    else:
+        logger.info(f"Collection created: name={name}")
+
+
+def _log_delete_summary(data: Dict[str, Any], context: Dict[str, Any]) -> None:
+    """Log summary for delete command."""
+    name = context.get("collection") or data.get("collection", "unknown")
+    logger.info(f"Collection deleted: name={name}")
+
+
+def _log_clear_summary(data: Dict[str, Any], context: Dict[str, Any]) -> None:
+    """Log summary for clear command."""
+    name = _extract_collection_name(data, context)
+    logger.info(f"Collection cleared: name={name}")
+
+
+def _log_info_summary(data: Dict[str, Any], context: Dict[str, Any]) -> None:
+    """Log summary for info command."""
+    name = _extract_collection_name(data, context)
+    points = data.get("result", {}).get("points_count") or data.get("points_count", 0)
+    logger.info(f"Collection info: name={name}, vectors={points}")
+
+
+def _log_summary(
+    data: Any, command: str, context: Optional[Dict[str, Any]] = None
+) -> None:
     """
     Log a one-line summary for command results.
 
     Args:
         data: Command result data
         command: Command name
+        context: Optional context dictionary with additional info (e.g., collection name)
     """
+    context = context or {}
     if command == "list":
+        if isinstance(data, list):
+            logger.info(f"Found {len(data)} collection(s)")
         return
 
     if not isinstance(data, dict):
         return
 
-    if command == "create":
-        name = data.get("result", {}).get("name") or data.get("name", "unknown")
-        # Try to extract vector size
-        vector_size = None
-        if "result" in data and "config" in data["result"]:
-            vector_size = (
-                data["result"]["config"]
-                .get("params", {})
-                .get("vectors", {})
-                .get("size")
-            )
-        if vector_size:
-            logger.info(f"Collection created: name={name}, vector_size={vector_size}")
-        else:
-            logger.info(f"Collection created: name={name}")
+    command_handlers = {
+        "create": _log_create_summary,
+        "delete": _log_delete_summary,
+        "clear": _log_clear_summary,
+        "info": _log_info_summary,
+    }
 
-    elif command == "delete":
-        name = data.get("collection", "unknown")
-        logger.info(f"Collection deleted: name={name}")
-
-    elif command == "clear":
-        name = data.get("collection") or data.get("result", {}).get(
-            "collection", "unknown"
-        )
-        logger.info(f"Collection cleared: name={name}")
-
-    elif command == "info":
-        name = data.get("result", {}).get("name") or data.get("name", "unknown")
-        points = data.get("result", {}).get("points_count") or data.get(
-            "points_count", 0
-        )
-        logger.info(f"Collection info: name={name}, vectors={points}")
+    handler = command_handlers.get(command)
+    if handler:
+        handler(data, context)
 
 
 def _get_log_level_from_args(args: argparse.Namespace) -> int:
@@ -441,10 +473,13 @@ def main():
 
     # Output result to stdout
     if result is not None:
+        summary_context: Optional[Dict[str, Any]] = None
+        if args.action in {"info", "create", "delete", "clear"}:
+            summary_context = {"collection": args.collection}
         output_format = getattr(args, "output", "json")
         _format_output(result, output_format, args.action)
         # Log summary for command results
-        _log_summary(result, args.action)
+        _log_summary(result, args.action, summary_context)
 
 
 if __name__ == "__main__":

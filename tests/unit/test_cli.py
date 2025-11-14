@@ -253,6 +253,18 @@ def test_create_collection_with_all_options():
     )
 
 
+def test_create_collection_logs_success(caplog):
+    """Ensure create_collection logs success message."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+    commands.collection_service.create_collection = Mock(return_value={})
+
+    with caplog.at_level("INFO"):
+        commands.create_collection("test-collection")
+
+    assert "Successfully created collection 'test-collection'" in caplog.text
+
+
 def test_create_collection_invalid_vector_size_zero():
     """Test create_collection exits with SystemExit for zero vector size."""
     mock_db_client = Mock()
@@ -302,6 +314,18 @@ def test_delete_collection():
     )
 
 
+def test_delete_collection_logs_success(caplog):
+    """Ensure delete_collection logs success message."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+    commands.collection_service.delete_collection = Mock()
+
+    with caplog.at_level("INFO"):
+        commands.delete_collection("test-collection")
+
+    assert "Successfully deleted collection 'test-collection'" in caplog.text
+
+
 def test_clear_collection():
     """Test clear_collection command."""
     mock_db_client = Mock()
@@ -317,6 +341,18 @@ def test_clear_collection():
     )
 
 
+def test_clear_collection_logs_success(caplog):
+    """Ensure clear_collection logs success message."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+    commands.collection_service.clear_collection = Mock(return_value={})
+
+    with caplog.at_level("INFO"):
+        commands.clear_collection("test-collection")
+
+    assert "Successfully cleared collection 'test-collection'" in caplog.text
+
+
 def test_list_collections(caplog):
     """Test list_collections command."""
     mock_db_client = Mock()
@@ -325,7 +361,7 @@ def test_list_collections(caplog):
     mock_collections = [{"name": "collection1"}, {"name": "collection2"}]
     commands.collection_service.list_collections = Mock(return_value=mock_collections)
 
-    with caplog.at_level("INFO"):
+    with caplog.at_level("DEBUG"):
         result = commands.list_collections()
 
     assert "Listing collections..." in caplog.text
@@ -345,6 +381,21 @@ def test_get_collection_info():
 
     commands.collection_service.get_collection_info.assert_called_once_with(
         "test-collection"
+    )
+
+
+def test_get_collection_info_logs_success(caplog):
+    """Ensure get_collection_info logs success message."""
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+    commands.collection_service.get_collection_info = Mock(return_value={})
+
+    with caplog.at_level("INFO"):
+        commands.get_collection_info("test-collection")
+
+    assert (
+        "Successfully retrieved information for collection 'test-collection'"
+        in caplog.text
     )
 
 
@@ -369,6 +420,32 @@ def test_load_collection_success(mock_expanduser, mock_exists, mock_validate_pat
     mock_exists.assert_called_once_with("/expanded/path")
     commands.collection_service.load_collection.assert_called_once_with(
         "test-collection", "/expanded/path"
+    )
+
+
+@patch("src.services.collection.validate_path")
+@patch("src.cli.commands.os.path.exists")
+@patch("src.cli.commands.os.path.expanduser")
+def test_load_collection_logs_success(
+    mock_expanduser, mock_exists, mock_validate_path, caplog
+):
+    """Ensure load_collection logs success message."""
+    from pathlib import Path
+
+    mock_db_client = Mock()
+    commands = CLICommands(mock_db_client)
+
+    mock_expanduser.return_value = "/expanded/path"
+    mock_exists.return_value = True
+    mock_validate_path.return_value = Path("/expanded/path")
+    commands.collection_service.load_collection = Mock()
+
+    with caplog.at_level("INFO"):
+        commands.load_collection("test-collection", "~/path/to/adrs")
+
+    assert (
+        "Successfully loaded ADRs from /expanded/path into collection 'test-collection'"
+        in caplog.text
     )
 
 
@@ -450,7 +527,9 @@ def test_main_create_command(
     )
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "create")
-    mock_log_summary.assert_called_once_with(mock_result, "create")
+    mock_log_summary.assert_called_once_with(
+        mock_result, "create", {"collection": "test-collection"}
+    )
 
 
 @patch("src.cli.main._get_commands")
@@ -494,7 +573,9 @@ def test_main_create_command_with_options(
     )
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "create")
-    mock_log_summary.assert_called_once_with(mock_result, "create")
+    mock_log_summary.assert_called_once_with(
+        mock_result, "create", {"collection": "test-collection"}
+    )
 
 
 @patch("src.cli.main._get_commands")
@@ -523,7 +604,9 @@ def test_main_delete_command(
     mock_commands.delete_collection.assert_called_once_with("test-collection")
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "delete")
-    mock_log_summary.assert_called_once_with(mock_result, "delete")
+    mock_log_summary.assert_called_once_with(
+        mock_result, "delete", {"collection": "test-collection"}
+    )
 
 
 @patch("src.cli.main._get_commands")
@@ -552,7 +635,7 @@ def test_main_list_command(
     mock_commands.list_collections.assert_called_once()
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "list")
-    mock_log_summary.assert_called_once_with(mock_result, "list")
+    mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
 @patch("src.cli.main._get_commands")
@@ -581,7 +664,9 @@ def test_main_info_command(
     mock_commands.get_collection_info.assert_called_once_with("test-collection")
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "info")
-    mock_log_summary.assert_called_once_with(mock_result, "info")
+    mock_log_summary.assert_called_once_with(
+        mock_result, "info", {"collection": "test-collection"}
+    )
 
 
 @patch("src.cli.main._get_commands")
@@ -629,7 +714,7 @@ def test_main_load_command(
     )
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "load")
-    mock_log_summary.assert_called_once_with(mock_result, "load")
+    mock_log_summary.assert_called_once_with(mock_result, "load", None)
 
 
 @patch("src.cli.main.sys.exit")
@@ -891,7 +976,7 @@ def test_main_list_command_with_output_table(
 
     mock_commands.list_collections.assert_called_once()
     mock_format_output.assert_called_once_with(mock_result, "table", "list")
-    mock_log_summary.assert_called_once_with(mock_result, "list")
+    mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
 @patch("src.cli.main._get_commands")
@@ -914,7 +999,7 @@ def test_main_list_command_with_output_json(
 
     mock_commands.list_collections.assert_called_once()
     mock_format_output.assert_called_once_with(mock_result, "json", "list")
-    mock_log_summary.assert_called_once_with(mock_result, "list")
+    mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
 @patch("src.cli.main._get_commands")
@@ -938,7 +1023,7 @@ def test_main_list_command_default_output_json(
     mock_commands.list_collections.assert_called_once()
     # Default should be json
     mock_format_output.assert_called_once_with(mock_result, "json", "list")
-    mock_log_summary.assert_called_once_with(mock_result, "list")
+    mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
 @patch("src.cli.main._get_commands")
@@ -962,4 +1047,6 @@ def test_main_create_command_with_output_table(
         main()
 
     mock_format_output.assert_called_once_with(mock_result, "table", "create")
-    mock_log_summary.assert_called_once_with(mock_result, "create")
+    mock_log_summary.assert_called_once_with(
+        mock_result, "create", {"collection": "test-collection"}
+    )
