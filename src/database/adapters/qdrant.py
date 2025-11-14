@@ -192,7 +192,7 @@ class QdrantVectorDatabase(VectorDatabase):
         Returns:
             Collection information
         """
-        logger.info(
+        logger.debug(
             f"Collection '{collection_name}' already exists. Returning existing collection info."
         )
         collection_info = self.get_collection_info(collection_name)
@@ -282,11 +282,11 @@ class QdrantVectorDatabase(VectorDatabase):
         )
 
         if enable_hybrid:
-            logger.info(
+            logger.debug(
                 f"Creating collection '{collection_name}' with hybrid search enabled."
             )
         else:
-            logger.info(
+            logger.debug(
                 f"Creating collection '{collection_name}' with semantic search only."
             )
 
@@ -580,7 +580,7 @@ class QdrantVectorDatabase(VectorDatabase):
             collection_info = self.get_collection_info(collection)
             is_hybrid = self._detect_hybrid_from_info(collection_info)
             self._hybrid_collections_cache[collection] = is_hybrid
-            logger.info(
+            logger.debug(
                 f"Collection '{collection}' detected as {'hybrid' if is_hybrid else 'standard'} collection."
             )
             return is_hybrid
@@ -784,7 +784,7 @@ class QdrantVectorDatabase(VectorDatabase):
                 logger.error(error_msg)
                 raise DatabaseOperationError(error_msg)
             else:
-                logger.info(f"Uploaded chunk {file_name}-{chunk_id}")
+                logger.debug(f"Uploaded chunk {file_name}-{chunk_id}")
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,

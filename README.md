@@ -79,6 +79,49 @@ pre-commit install
 
 This will set up pre-commit hooks that run `black` and `flake8` automatically on every commit.
 
+### Testing & Checks
+
+Run the local quality gates before opening a PR:
+
+```bash
+# Unit tests
+pytest tests/unit -v
+
+# Functional CLI tests (in-memory adapter, no external deps)
+pytest tests/integration/test_cli_functional.py -v
+```
+
+Integration and end-to-end scenarios require Qdrant and Ollama (the CI workflow spins them up via `docker compose`):
+
+```bash
+pytest tests/integration -v --timeout=300
+```
+
+Security scanning is part of CI, and you can run the same tools locally:
+
+```bash
+pip-audit --strict --progress-spinner off
+bandit -q -r src
+```
+
+These checks ensure dependency vulnerabilities and common Python security issues are caught early.
+
+### Conventional Commits & Releases
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) so semantic version bumps stay predictable. Use [Commitizen](https://commitizen-tools.github.io/commitizen/) to craft messages:
+
+```bash
+cz commit  # interactive prompt that builds a compliant message
+```
+
+To check existing commits before pushing:
+
+```bash
+cz check --rev-range origin/main..HEAD
+```
+
+Our CI also runs `cz check` on pull requests; merge requests with non-compliant messages will fail. This policy lets us map features/fixes/breaking changes to `MAJOR.MINOR.PATCH` releases automatically.
+
 ## Usage
 
 ### CLI
@@ -113,6 +156,10 @@ Create a collection with a custom vector size:
 vdb-flow create my-adr-collection --vector-size 1024
 ```
 
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
+
 #### Check Version
 
 Display the version of vdb-flow:
@@ -141,6 +188,10 @@ Example:
 vdb-flow load my-adr-collection ~/projects/my-project/docs/adr
 ```
 
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
+
 #### List Collections
 
 List all collections in your vector database instance:
@@ -148,6 +199,20 @@ List all collections in your vector database instance:
 ```bash
 vdb-flow list
 ```
+
+By default, collections are output as JSON (machine-readable). Use `--output table` for human-readable tables:
+
+```bash
+# Machine-readable JSON (default, script-friendly)
+vdb-flow list | jq '.[0].name'  # Extract first collection name using jq
+
+# Human-readable table
+vdb-flow list --output table
+```
+
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
 
 #### Get Collection Information
 
@@ -157,6 +222,10 @@ Get detailed information about a specific collection:
 vdb-flow info my-adr-collection
 ```
 
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
+
 #### Clear a Collection
 
 Remove all vectors from a collection without deleting the collection itself:
@@ -165,6 +234,10 @@ Remove all vectors from a collection without deleting the collection itself:
 vdb-flow clear my-adr-collection
 ```
 
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
+
 #### Delete a Collection
 
 Permanently delete a collection:
@@ -172,6 +245,79 @@ Permanently delete a collection:
 ```bash
 vdb-flow delete my-adr-collection
 ```
+
+**Options:**
+- `--output {json,table}` - Output format (default: json). Use `table` for human-readable output.
+- `--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` - Set logging verbosity (default: from config file).
+
+### Output Format
+
+All database commands (create, delete, clear, list, info, load) support two output formats: **json** (default, machine-readable for scripting) and **table** (human-readable).
+
+#### JSON Format (Default)
+
+By default, commands output machine-readable JSON for scripting:
+
+```bash
+# All commands output JSON by default
+vdb-flow list                    # JSON array of collections
+vdb-flow info my-collection      # JSON object with collection details
+vdb-flow create my-collection   # JSON object with created collection info
+vdb-flow delete my-collection   # JSON object: {"status": "ok", "collection": "my-collection"}
+vdb-flow load my-collection /path # JSON object with load status and runtime info
+```
+
+#### Table Format (Human-Readable)
+
+Use `--output table` to get human-readable table output:
+
+```bash
+# List collections in a compact table
+vdb-flow list --output table
+# Output:
+# Name              Vectors  Status
+# -------------------------------
+# my-collection     1000     active
+# test-collection   500      active
+
+# Collection info as a key-value table
+vdb-flow info my-collection --output table
+
+# Other commands also support table format
+vdb-flow create my-collection --output table
+vdb-flow delete my-collection --output table
+```
+
+Error messages and progress logs are sent to stderr, so you can redirect stdout for JSON processing:
+
+```bash
+# Extract collection names (JSON is default, so no flag needed)
+vdb-flow list | jq -r '.[].name'
+
+# Parse collection info
+vdb-flow info my-collection | jq '.result.points_count'
+
+# Suppress logs, only get JSON
+vdb-flow list 2>/dev/null | jq
+```
+
+**Note**: The default output format is `json` for script compatibility. Use `--output table` for human-readable output when working interactively.
+
+### Logging
+
+Control logging verbosity using the `--log-level` flag or configuration file:
+
+```bash
+# Use --log-level flag to override config
+vdb-flow list --log-level DEBUG
+vdb-flow load my-collection /path --log-level WARNING
+```
+
+Available log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
+The default log level comes from your configuration file (see [Configuration](#configuration) section). The `--log-level` flag overrides the config value for that command execution.
+
+**Note**: INFO-level messages (like "Creating collection...", "Found 5 collection(s)", etc.) are displayed by default. If you don't see these messages, check your config file's `logging.level` setting or use `--log-level INFO` to ensure INFO messages are shown. Log messages are sent to stderr, so they won't interfere with JSON output when using `--output json`.
 
 ## Configuration
 
@@ -217,6 +363,7 @@ Then customize the settings as needed. The configuration file supports:
 - **Text processing**: Chunk size, overlap, and max text length
 - **Rate limiting**: Database and embedding API request rate limits, with option to disable (development only)
 - **Security settings**: Custom restricted paths to block access to specific directories
+- **Logging settings**: Default logging level (can be overridden with `--log-level` flag)
 
 ### Environment Variables
 
@@ -232,6 +379,7 @@ You can override any configuration setting using environment variables:
 - `RATE_LIMITING_DISABLED` - Set to "true", "1", or "yes" to disable rate limiting (development only)
 - `DB_RATE_LIMIT` - Database requests per second
 - `EMBEDDING_RATE_LIMIT` - Embedding API requests per second
+- `LOG_LEVEL` - Logging level: "DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL"
 
 Example:
 
@@ -239,8 +387,30 @@ Example:
 export QDRANT_URL="http://localhost:6333"
 export OLLAMA_URL="http://localhost:11434/api/embeddings"
 export DB_RATE_LIMIT=200
+export LOG_LEVEL=WARNING
 vdb-flow create my-collection
 ```
+
+### Logging Configuration
+
+You can set a default logging level in your `config.yaml` file:
+
+```yaml
+logging:
+  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+```
+
+This sets the baseline logging level for all commands. You can override it per-command using the `--log-level` flag:
+
+```bash
+# Use config default (INFO)
+vdb-flow list
+
+# Override with flag
+vdb-flow list --log-level DEBUG
+```
+
+This allows teams to codify their preferred verbosity in the config file while still allowing individual users to adjust it when needed.
 
 ## Security
 

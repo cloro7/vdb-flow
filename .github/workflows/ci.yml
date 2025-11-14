@@ -9,6 +9,38 @@ on:
     branches: [main, develop]
 
 jobs:
+  conventional-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Set up virtual environment
+        run: python -m venv venv
+
+      - name: Install commitizen
+        run: |
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install commitizen
+
+      - name: Check commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          source venv/bin/activate
+          cz check --rev-range ${BASE_SHA}..${HEAD_SHA}
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -39,6 +71,43 @@ jobs:
         run: |
           source venv/bin/activate
           flake8 src/
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Set up virtual environment
+        run: python -m venv venv
+
+      - name: Install dependencies and security tools
+        run: |
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Export third-party dependencies for audit
+        run: |
+          source venv/bin/activate
+          pip freeze | grep -v 'vdb-flow' > audit-requirements.txt
+          cat audit-requirements.txt
+
+      - name: Run pip-audit
+        run: |
+          source venv/bin/activate
+          pip-audit --strict --progress-spinner off -r audit-requirements.txt
+
+      - name: Run Bandit
+        run: |
+          source venv/bin/activate
+          bandit -q -r src
 
   unit-test:
     name: Unit Tests
@@ -273,5 +342,7 @@ jobs:
             echo "No changes to CHANGELOG.md"
           else
             git commit -m "chore: update CHANGELOG.md for release ${{ steps.get_version.outputs.version }}"
-            git push origin ${{ github.ref_name }}
+            TARGET_BRANCH="${{ github.event.repository.default_branch }}"
+            echo "Pushing changelog update to ${TARGET_BRANCH}"
+            git push origin "HEAD:${TARGET_BRANCH}"
           fi

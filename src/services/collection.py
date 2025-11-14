@@ -206,7 +206,8 @@ class CollectionService:
         Returns:
             List of collection information
         """
-        return self.db_client.list_collections()
+        collections = self.db_client.list_collections()
+        return collections
 
     def get_collection_info(self, collection_name: str) -> Dict[str, Any]:
         """
@@ -416,7 +417,7 @@ class CollectionService:
                 batch = all_chunks[batch_start:batch_end]
                 self._process_batch_with_fallback(collection_name, batch, pbar)
 
-        logger.info(
+        logger.debug(
             f"Successfully loaded {len(md_files)} files ({total_chunks} chunks) "
             f"into collection '{collection_name}'"
         )

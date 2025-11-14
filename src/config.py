@@ -1,5 +1,6 @@
 """Configuration management for VDB Manager."""
 
+import copy
 import os
 import logging
 from pathlib import Path
@@ -49,6 +50,9 @@ DEFAULT_CONFIG = {
         # Allowed patterns override denied patterns (higher precedence)
         "allowed_patterns": [],
     },
+    "logging": {
+        "level": "INFO",  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+    },
 }
 
 
@@ -62,7 +66,8 @@ class Config:
         Args:
             config_path: Path to config file. If None, looks for config.yaml or config.yml in ~/.vdb-flow/.
         """
-        self._config = DEFAULT_CONFIG.copy()
+        # Use deepcopy to prevent mutations of nested dicts from affecting DEFAULT_CONFIG
+        self._config = copy.deepcopy(DEFAULT_CONFIG)
 
         # Determine config file path
         if config_path is None:
@@ -162,6 +167,10 @@ class Config:
         self._set_int_env(
             "EMBEDDING_RATE_LIMIT", "rate_limiting", "embedding_requests_per_second"
         )
+
+        # Logging settings
+        if log_level := os.getenv("LOG_LEVEL"):
+            self._config["logging"]["level"] = log_level.upper()
 
     def _set_int_env(self, env_var: str, section: str, key: str) -> None:
         """Set integer config value from environment variable."""
@@ -276,6 +285,24 @@ class Config:
             List of glob patterns to explicitly permit (overrides denied patterns)
         """
         return self._config.get("security", {}).get("allowed_patterns", [])
+
+    @property
+    def log_level(self) -> int:
+        """
+        Get logging level, normalized to logging module constants.
+
+        Returns:
+            Logging level constant (e.g., logging.INFO, logging.DEBUG)
+        """
+        level_str = self._config.get("logging", {}).get("level", "INFO").upper()
+        level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
+        }
+        return level_map.get(level_str, logging.INFO)
 
 
 # Global config instance
