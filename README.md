@@ -79,6 +79,33 @@ pre-commit install
 
 This will set up pre-commit hooks that run `black` and `flake8` automatically on every commit.
 
+### Testing & Checks
+
+Run the local quality gates before opening a PR:
+
+```bash
+# Unit tests
+pytest tests/unit -v
+
+# Functional CLI tests (in-memory adapter, no external deps)
+pytest tests/integration/test_cli_functional.py -v
+```
+
+Integration and end-to-end scenarios require Qdrant and Ollama (the CI workflow spins them up via `docker compose`):
+
+```bash
+pytest tests/integration -v --timeout=300
+```
+
+Security scanning is part of CI, and you can run the same tools locally:
+
+```bash
+pip-audit --strict --progress-spinner off
+bandit -q -r src
+```
+
+These checks ensure dependency vulnerabilities and common Python security issues are caught early.
+
 ## Usage
 
 ### CLI
