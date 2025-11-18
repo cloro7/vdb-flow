@@ -219,7 +219,7 @@ jobs:
   update-changelog:
     name: Update Changelog
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [build]
     permissions:
       contents: write

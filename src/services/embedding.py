@@ -52,10 +52,20 @@ def get_embedding(text: str) -> List[float]:
                     f"Attempt {attempt}/{max_attempts} failed: "
                     f"Ollama returned {resp.status_code}"
                 )
+        except requests.exceptions.Timeout as e:
+            logger.warning(
+                f"Attempt {attempt}/{max_attempts} failed: "
+                f"Ollama connection timeout: {e}"
+            )
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(
+                f"Attempt {attempt}/{max_attempts} failed: "
+                f"Unable to connect to Ollama at {ollama_url}: {e}"
+            )
         except requests.exceptions.RequestException as e:
             logger.warning(
                 f"Attempt {attempt}/{max_attempts} failed: "
-                f"Ollama connection error: {e}"
+                f"Ollama request error: {e}"
             )
 
         # Apply exponential backoff before retrying (except on last attempt)
@@ -66,4 +76,8 @@ def get_embedding(text: str) -> List[float]:
             logger.debug(f"Waiting {delay}s before retry...")
             time.sleep(delay)
 
-    raise RuntimeError(f"Failed to get embedding after {max_attempts} attempts.")
+    raise RuntimeError(
+        f"Failed to get embedding after {max_attempts} attempts. "
+        f"Unable to connect to Ollama at {ollama_url}. "
+        f"Please check that Ollama is running and accessible."
+    )

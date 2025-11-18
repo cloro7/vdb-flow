@@ -3,7 +3,7 @@
 import os
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from .constants import (
     DEFAULT_CHUNK_SIZE,
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Default configuration values
 DEFAULT_CONFIG = {
     "database": {
-        "type": "qdrant",  # Options: "qdrant", "pinecone", "weaviate", etc.
+        "type": "qdrant",  # Options: "qdrant", "inmemory" (for testing/dev), "pinecone", "weaviate", etc.
         "url": "http://localhost:6333",
     },
     "ollama": {
@@ -37,6 +37,18 @@ DEFAULT_CONFIG = {
         "db_requests_per_second": DEFAULT_DB_RATE_LIMIT,  # Database requests per second
         "embedding_requests_per_second": DEFAULT_EMBEDDING_RATE_LIMIT,  # Embedding API requests per second
     },
+    "security": {
+        # Optional list of additional system directories to block (literal paths)
+        # Always-blocked: /proc, /sys, /dev, /run, /var/run (virtual filesystems)
+        # Optional (can be added here to block): /etc, /root, /boot, /sbin, /usr/sbin
+        "restricted_paths": [],
+        # Glob patterns to block (e.g., "/etc/**", "/var/secrets/*")
+        # Patterns support standard glob syntax: *, **, ?
+        "denied_patterns": [],
+        # Glob patterns to explicitly permit, even if they match a denied pattern
+        # Allowed patterns override denied patterns (higher precedence)
+        "allowed_patterns": [],
+    },
 }
 
 
@@ -48,7 +60,7 @@ class Config:
         Initialize configuration.
 
         Args:
-            config_path: Path to config file. If None, looks for config.yaml or config.yml in ~/.vdb-manager/.
+            config_path: Path to config file. If None, looks for config.yaml or config.yml in ~/.vdb-flow/.
         """
         self._config = DEFAULT_CONFIG.copy()
 
@@ -56,7 +68,7 @@ class Config:
         if config_path is None:
             # Look for config.yaml or config.yml in user's home directory
             home_dir = Path.home()
-            config_dir = home_dir / ".vdb-manager"
+            config_dir = home_dir / ".vdb-flow"
             # Create directory if it doesn't exist (but don't create the file)
             config_dir.mkdir(mode=0o755, exist_ok=True)
 
@@ -234,6 +246,36 @@ class Config:
         return self._config.get("rate_limiting", {}).get(
             "embedding_requests_per_second", DEFAULT_EMBEDDING_RATE_LIMIT
         )
+
+    @property
+    def restricted_paths(self) -> List[str]:
+        """
+        Get list of additional restricted paths from config.
+
+        Returns:
+            List of paths to block (in addition to always-blocked virtual filesystems)
+        """
+        return self._config.get("security", {}).get("restricted_paths", [])
+
+    @property
+    def denied_patterns(self) -> List[str]:
+        """
+        Get list of denied glob patterns from config.
+
+        Returns:
+            List of glob patterns to block
+        """
+        return self._config.get("security", {}).get("denied_patterns", [])
+
+    @property
+    def allowed_patterns(self) -> List[str]:
+        """
+        Get list of allowed glob patterns from config.
+
+        Returns:
+            List of glob patterns to explicitly permit (overrides denied patterns)
+        """
+        return self._config.get("security", {}).get("allowed_patterns", [])
 
 
 # Global config instance
