@@ -1,7 +1,7 @@
 """Database module following hexagonal architecture."""
 
 from typing import Optional, Callable, Dict, List
-from .port import VectorDatabase
+from .port import VectorDatabase, CollectionNotFoundError, VectorDatabaseError
 
 __all__ = [
     "VectorDatabase",
