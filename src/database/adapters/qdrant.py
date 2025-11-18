@@ -102,16 +102,27 @@ class QdrantVectorDatabase(VectorDatabase):
             return resp, True
         except requests.exceptions.Timeout as e:
             logger.error(f"Request timeout for {method} {url}: {e}")
-            raise QdrantNetworkError(f"Request timeout: {e}") from e
+            raise QdrantNetworkError(
+                f"Connection timeout: Unable to reach Qdrant at {self.qdrant_url}. "
+                f"Please check that Qdrant is running and accessible."
+            ) from e
         except requests.exceptions.ConnectionError as e:
             logger.error(f"Connection error for {method} {url}: {e}")
-            raise QdrantNetworkError(f"Connection error: {e}") from e
+            raise QdrantNetworkError(
+                f"Connection failed: Unable to connect to Qdrant at {self.qdrant_url}. "
+                f"Please check that Qdrant is running and the URL is correct."
+            ) from e
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error for {method} {url}: {e}")
-            raise QdrantNetworkError(f"Request failed: {e}") from e
+            raise QdrantNetworkError(
+                f"Request failed: Error communicating with Qdrant at {self.qdrant_url}. "
+                f"Error: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"Unexpected error for {method} {url}: {e}")
-            raise QdrantNetworkError(f"Unexpected error: {e}") from e
+            raise QdrantNetworkError(
+                f"Unexpected error communicating with Qdrant at {self.qdrant_url}: {e}"
+            ) from e
 
     def _collection_exists(self, collection_name: str) -> bool:
         """
@@ -197,7 +208,7 @@ class QdrantVectorDatabase(VectorDatabase):
             if resp.status_code == 200:
                 # Cache hybrid status for the new collection
                 self._hybrid_collections_cache[collection_name] = enable_hybrid
-                logger.info(f"Created collection '{collection_name}'.")
+                logger.debug(f"Created collection '{collection_name}'.")
                 return resp.json()
             else:
                 error_msg = (
@@ -220,25 +231,36 @@ class QdrantVectorDatabase(VectorDatabase):
 
         Raises:
             QdrantNetworkError: If network request fails
+            QdrantCollectionNotFoundError: If collection doesn't exist
             ValueError: If collection name is invalid
         """
         validate_collection_name(collection_name)
         url = f"{self.qdrant_url}/collections/{collection_name}"
+
+        # Check if collection exists before deletion to provide better error messages
+        # Qdrant's DELETE API is idempotent (returns 200 even for non-existent collections),
+        # but we want to provide clear feedback to users
+        collection_existed = self._collection_exists(collection_name)
+
         try:
             resp, _ = self._make_request("delete", url)
             if resp.status_code == 200:
                 # Clear cache for deleted collection
                 self._hybrid_collections_cache.pop(collection_name, None)
-                logger.info(f"Deleted collection '{collection_name}'")
+                # If collection didn't exist, raise error for user feedback
+                if not collection_existed:
+                    error_msg = f"Collection '{collection_name}' not found"
+                    raise QdrantCollectionNotFoundError(error_msg)
             elif resp.status_code == 404:
-                # Clear cache even if collection not found
+                # Collection doesn't exist - raise explicit error
                 self._hybrid_collections_cache.pop(collection_name, None)
-                logger.info(f"Collection '{collection_name}' not found.")
+                error_msg = f"Collection '{collection_name}' not found"
+                raise QdrantCollectionNotFoundError(error_msg)
             else:
                 error_msg = f"Failed to delete {collection_name}: {resp.status_code} — {resp.text}"
                 logger.warning(error_msg)
                 raise QdrantError(error_msg)
-        except (QdrantNetworkError, QdrantError):
+        except (QdrantNetworkError, QdrantCollectionNotFoundError, QdrantError):
             raise
         except Exception as e:
             logger.error(f"Unexpected error deleting collection: {e}")
@@ -263,7 +285,7 @@ class QdrantVectorDatabase(VectorDatabase):
         try:
             resp, _ = self._make_request("post", url, json={"filter": {}})
             if resp.status_code == 200:
-                logger.info(f"Cleared all points from collection '{collection_name}'.")
+                logger.debug(f"Cleared all points from collection '{collection_name}'.")
                 return resp.json()
             else:
                 error_msg = f"Failed to clear collection '{collection_name}': {resp.status_code} — {resp.text}"

@@ -6,7 +6,8 @@ import time
 import logging
 from typing import Optional
 
-from ..database.port import VectorDatabase
+from ..database.port import VectorDatabase, CollectionNotFoundError
+from ..database.adapters.qdrant import QdrantNetworkError, QdrantError
 from ..services.collection import CollectionService
 
 logger = logging.getLogger(__name__)
@@ -51,29 +52,53 @@ class CLICommands:
                 vector_size=vector_size,
             )
             logger.info(f"Created collection: {created_collection}")
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
         except ValueError as e:
             logger.error(str(e))
             raise
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete an existing collection."""
-        self.collection_service.delete_collection(collection_name)
-        logger.info(f"Deleted collection: {collection_name}")
+        try:
+            self.collection_service.delete_collection(collection_name)
+            logger.info(f"Deleted collection: {collection_name}")
+        except CollectionNotFoundError as e:
+            logger.error(f"Collection not found: {e}")
+            sys.exit(1)
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def clear_collection(self, collection_name: str) -> None:
         """Clear all points from a collection."""
-        self.collection_service.clear_collection(collection_name)
-        logger.info(f"Cleared collection: {collection_name}")
+        try:
+            self.collection_service.clear_collection(collection_name)
+            logger.info(f"Cleared collection: {collection_name}")
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def list_collections(self) -> None:
         """List all collections."""
-        collections = self.collection_service.list_collections()
-        logger.info(f"Listed collections: {collections}")
+        try:
+            collections = self.collection_service.list_collections()
+            logger.info(f"Listed collections: {collections}")
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def get_collection_info(self, collection_name: str) -> None:
         """Get information about a collection."""
-        collection_info = self.collection_service.get_collection_info(collection_name)
-        logger.info(f"Collection info: {collection_info}")
+        try:
+            collection_info = self.collection_service.get_collection_info(
+                collection_name
+            )
+            logger.info(f"Collection info: {collection_info}")
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
 
     def load_collection(self, collection_name: str, path: str) -> None:
         """
@@ -98,8 +123,18 @@ class CLICommands:
 
         try:
             self.collection_service.load_collection(collection_name, adr_path)
+        except (QdrantNetworkError, QdrantError) as e:
+            logger.error(f"Database error: {e}")
+            sys.exit(1)
         except ValueError as e:
             logger.error(str(e))
+            sys.exit(1)
+        except RuntimeError as e:
+            # Embedding service connection errors
+            logger.error(f"Embedding service error: {e}")
+            logger.error(
+                "Please check that Ollama is running and accessible at the configured URL."
+            )
             sys.exit(1)
 
         elapsed = time.time() - start_time
