@@ -69,3 +69,5 @@ Thumbs.db
 # Pre-commit
 .pre-commit
 
+# Generated version file
+src/_version.py

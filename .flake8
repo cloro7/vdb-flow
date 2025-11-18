@@ -1,0 +1,47 @@
+[flake8]
+# Maximum line length
+max-line-length = 88
+
+# Exclude patterns
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    ENV,
+    build,
+    dist,
+    .eggs,
+    *.egg,
+    .mypy_cache,
+    .pytest_cache,
+    .tox,
+    .nox,
+    .coverage,
+    htmlcov,
+    src/_version.py
+
+# Ignore specific error codes
+# E203: whitespace before ':' (conflicts with black)
+# E266: too many leading '#' for block comment (style preference)
+# E501: line too long (handled by max-line-length)
+# W503: line break before binary operator (conflicts with black)
+# F401: imported but unused (we'll handle this per-file)
+extend-ignore = E203, E266, E501, W503
+
+# Per-file ignores
+per-file-ignores =
+    __init__.py:F401
+
+# Maximum complexity (optional, can be adjusted)
+max-complexity = 10
+
+# Show source for each error
+show-source = True
+
+# Count errors and warnings
+count = True
+
+# Statistics
+statistics = True
