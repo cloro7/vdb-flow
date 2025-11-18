@@ -69,3 +69,10 @@ security:
   # allowed_patterns:
   #   - /etc/company-docs/**     # Allow company docs under /etc even if /etc/** is denied
   #   - ~/private/public/*       # Allow public files in private directory
+
+# Logging configuration
+logging:
+  # Logging level: "DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL"
+  # Default: "INFO"
+  # This sets the baseline logging level. You can override it per-command using --log-level flag
+  level: "INFO"
