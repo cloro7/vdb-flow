@@ -260,8 +260,15 @@ class TestQdrantVectorDatabaseDeleteCollection:
 
     def test_delete_collection_not_found(self, qdrant_client):
         """Test deleting non-existent collection."""
-        with patch.object(qdrant_client, "_collection_exists") as mock_exists:
+        # Mock both _collection_exists and _make_request
+        with patch.object(
+            qdrant_client, "_collection_exists"
+        ) as mock_exists, patch.object(qdrant_client, "_make_request") as mock_request:
             mock_exists.return_value = False
+            # Simulate successful DELETE response (Qdrant returns 200 even for non-existent)
+            mock_resp = Mock()
+            mock_resp.status_code = 200
+            mock_request.return_value = (mock_resp, True)
 
             with pytest.raises(QdrantCollectionNotFoundError):
                 qdrant_client.delete_collection("non-existent")
