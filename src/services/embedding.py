@@ -1,40 +1,69 @@
 """Embedding service for generating text embeddings."""
+
 import logging
+import time
 import requests
 from typing import List
 
-logger = logging.getLogger(__name__)
+from ..config import get_config
+from ..rate_limiter import embedding_rate_limiter
 
-OLLAMA_URL = "http://localhost:11434/api/embeddings"
-MODEL = "nomic-embed-text:latest"
+logger = logging.getLogger(__name__)
 
 
 def get_embedding(text: str) -> List[float]:
     """
     Get embedding from Ollama with retries and size limits.
-    
+
     Args:
         text: Text to embed
-        
+
     Returns:
         Embedding vector
-        
+
     Raises:
         RuntimeError: If embedding generation fails after retries
     """
-    text = text[:5000]  # truncate overly long chunks (~5 KB)
-    for attempt in range(3):
+    config = get_config()
+    max_length = config.max_text_length
+    text = text[:max_length]  # truncate overly long chunks
+
+    ollama_url = config.ollama_url
+    model = config.ollama_model
+    timeout = config.ollama_timeout
+
+    max_attempts = 3
+    base_delay = 1  # Base delay in seconds for exponential backoff
+
+    for attempt in range(1, max_attempts + 1):
         try:
+            # Apply rate limiting before making request
+            embedding_rate_limiter.acquire()
+
             resp = requests.post(
-                OLLAMA_URL,
-                json={"model": MODEL, "prompt": text},
-                timeout=60
+                ollama_url, json={"model": model, "prompt": text}, timeout=timeout
             )
             if resp.status_code == 200:
+                if attempt > 1:
+                    logger.info(f"Successfully got embedding on attempt {attempt}")
                 return resp.json()["embedding"]
             else:
-                logger.warning(f"Ollama returned {resp.status_code}, retrying...")
+                logger.warning(
+                    f"Attempt {attempt}/{max_attempts} failed: "
+                    f"Ollama returned {resp.status_code}"
+                )
         except requests.exceptions.RequestException as e:
-            logger.warning(f"Ollama connection error: {e}, retrying...")
-    raise RuntimeError("Failed to get embedding after 3 retries.")
+            logger.warning(
+                f"Attempt {attempt}/{max_attempts} failed: "
+                f"Ollama connection error: {e}"
+            )
 
+        # Apply exponential backoff before retrying (except on last attempt)
+        if attempt < max_attempts:
+            delay = base_delay * (
+                2 ** (attempt - 1)
+            )  # Exponential backoff: 1s, 2s, 4s, ...
+            logger.debug(f"Waiting {delay}s before retry...")
+            time.sleep(delay)
+
+    raise RuntimeError(f"Failed to get embedding after {max_attempts} attempts.")

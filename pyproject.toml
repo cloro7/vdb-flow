@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=64.0", "setuptools-scm>=7.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vdb-manager"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A command-line tool for managing Architecture Decision Records (ADRs) in a Qdrant vector database"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "cloro7", email = "claramartinordonez@gmail.com"}
 ]
 keywords = ["vector-database", "qdrant", "adr", "embeddings", "cli"]
 classifiers = [
@@ -22,16 +22,18 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
     "requests>=2.28.0",
+    "pyyaml>=6.0.0",
+    "tqdm>=4.64.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-timeout>=2.0.0",
     "black>=22.0.0",
     "flake8>=5.0.0",
     "pre-commit>=3.0.0",
@@ -41,9 +43,9 @@ dev = [
 vdb-manager = "src.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/vdb-manager"
-Repository = "https://github.com/yourusername/vdb-manager"
-Issues = "https://github.com/yourusername/vdb-manager/issues"
+Homepage = "https://github.com/cloro7/vdb-manager"
+Repository = "https://github.com/cloro7/vdb-manager"
+Issues = "https://github.com/cloro7/vdb-manager/issues"
 
 [tool.setuptools]
 package-dir = {"" = "."}
@@ -53,12 +55,17 @@ where = ["."]
 include = ["src*"]
 exclude = ["tests*", "*.tests*", "*.tests"]
 
+[tool.setuptools_scm]
+write_to = "src/_version.py"
+version_scheme = "release-branch-semver"
+local_scheme = "no-local-version"
+
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py38', 'py39', 'py310', 'py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -73,21 +80,3 @@ extend-exclude = '''
   | dist
 )/
 '''
-
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "E266", "E501", "W503"]
-exclude = [
-    ".git",
-    "__pycache__",
-    "build",
-    "dist",
-    ".eggs",
-    "*.egg",
-    ".venv",
-    "venv",
-]
-per-file-ignores = [
-    "__init__.py:F401",
-]
-
