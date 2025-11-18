@@ -101,6 +101,13 @@ class CollectionService:
             config = get_config()
             vector_size = config.vector_size
 
+        # Validate vector size is positive
+        if vector_size <= 0:
+            raise ValueError(
+                f"vector_size must be positive, got {vector_size}. "
+                f"Vector dimensions must be greater than zero."
+            )
+
         return self.db_client.create_collection(
             collection_name,
             distance_metric,

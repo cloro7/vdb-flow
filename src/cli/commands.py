@@ -39,14 +39,21 @@ class CLICommands:
             distance_metric: Distance metric to use (Cosine, Euclid, Dot)
             enable_hybrid: Enable hybrid search with sparse vectors
             vector_size: Size of embedding vectors (defaults to config value)
+
+        Raises:
+            ValueError: If vector_size is invalid (non-positive)
         """
-        created_collection = self.collection_service.create_collection(
-            collection_name,
-            distance_metric,
-            enable_hybrid=enable_hybrid,
-            vector_size=vector_size,
-        )
-        logger.info(f"Created collection: {created_collection}")
+        try:
+            created_collection = self.collection_service.create_collection(
+                collection_name,
+                distance_metric,
+                enable_hybrid=enable_hybrid,
+                vector_size=vector_size,
+            )
+            logger.info(f"Created collection: {created_collection}")
+        except ValueError as e:
+            logger.error(str(e))
+            raise
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete an existing collection."""
