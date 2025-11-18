@@ -39,6 +39,7 @@ dev = [
     "pre-commit>=3.0.0",
     "bandit>=1.7.10",
     "pip-audit>=2.7.0",
+    "commitizen>=3.18.0",
 ]
 
 [project.scripts]
@@ -72,6 +73,13 @@ local_scheme = "no-local-version"
 
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version = "0.0.0"
+version_files = []
+update_changelog_on_bump = false
 
 [tool.black]
 line-length = 88

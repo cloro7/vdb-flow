@@ -9,6 +9,38 @@ on:
     branches: [main, develop]
 
 jobs:
+  conventional-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Set up virtual environment
+        run: python -m venv venv
+
+      - name: Install commitizen
+        run: |
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install commitizen
+
+      - name: Check commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          source venv/bin/activate
+          cz check --rev-range ${BASE_SHA}..${HEAD_SHA}
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
