@@ -138,15 +138,19 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    # Route commands - only initialize database for commands that need it
+    # Commands that require database access
+    db_commands = {"create", "delete", "clear", "list", "info", "load"}
+
+    # Lazy-load database client only for commands that need it
+    commands = None
+    if args.action in db_commands:
+        commands = _get_commands()
+
+    # Route commands
     if args.action == "version":
         _show_version()
         return
-
-    # Commands that need database access
-    commands = _get_commands()
-
-    if args.action == "create":
+    elif args.action == "create":
         # Default to hybrid=True, unless --no-hybrid is specified
         enable_hybrid = not getattr(args, "no_hybrid", False)
         vector_size = getattr(args, "vector_size", None)

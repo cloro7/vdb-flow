@@ -11,8 +11,24 @@ from ...constants import DEFAULT_MAX_WORKERS, DEFAULT_VECTOR_SIZE
 from ...rate_limiter import db_rate_limiter
 from ...validation import validate_collection_name, validate_distance_metric
 from ..port import VectorDatabase
+from .. import register_adapter
 
 logger = logging.getLogger(__name__)
+
+
+def _create_qdrant_adapter(qdrant_url: Optional[str] = None) -> "QdrantVectorDatabase":
+    """
+    Create a QdrantVectorDatabase instance.
+
+    Factory function registered with the adapter registry to enable pluggable architecture.
+
+    Args:
+        qdrant_url: Optional Qdrant URL. If None, uses config default.
+
+    Returns:
+        QdrantVectorDatabase instance
+    """
+    return QdrantVectorDatabase(qdrant_url=qdrant_url)
 
 
 class QdrantError(Exception):
@@ -839,3 +855,8 @@ class QdrantVectorDatabase(VectorDatabase):
         except Exception as e:
             logger.error(f"Unexpected error searching: {e}")
             raise QdrantError(f"Failed to search: {e}") from e
+
+
+# Register the Qdrant adapter with the registry
+# This makes it available via create_vector_database("qdrant", ...)
+register_adapter("qdrant", _create_qdrant_adapter)
