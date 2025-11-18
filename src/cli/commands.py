@@ -4,7 +4,7 @@ import os
 import sys
 import time
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from ..database.port import (
     CollectionNotFoundError,
@@ -19,6 +19,23 @@ from ..services.collection import CollectionService
 logger = logging.getLogger(__name__)
 
 
+def _ensure_logging_configured(default_level: int = logging.INFO) -> None:
+    """
+    Configure root logger if nothing has set it up yet.
+
+    This covers programmatic entry points (e.g., vdb-list) that call CLICommands
+    directly without going through the main CLI setup.
+    """
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        return
+    logging.basicConfig(
+        level=default_level,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
 class CLICommands:
     """Command handlers for CLI operations."""
 
@@ -29,6 +46,7 @@ class CLICommands:
         Args:
             collection_service: Collection service instance
         """
+        _ensure_logging_configured()
         self.collection_service = collection_service
 
     def create_collection(
@@ -37,7 +55,7 @@ class CLICommands:
         distance_metric: str = "Cosine",
         enable_hybrid: bool = True,
         vector_size: Optional[int] = None,
-    ) -> None:
+    ) -> Dict[str, Any]:
         """
         Create a new collection.
 
@@ -47,8 +65,12 @@ class CLICommands:
             enable_hybrid: Enable hybrid search with sparse vectors
             vector_size: Size of embedding vectors (defaults to config value)
 
+        Returns:
+            Collection information dictionary
+
         Exits with code 1 on validation or database errors.
         """
+        logger.info(f"Creating collection '{collection_name}'...")
         try:
             created_collection = self.collection_service.create_collection(
                 collection_name,
@@ -56,7 +78,8 @@ class CLICommands:
                 enable_hybrid=enable_hybrid,
                 vector_size=vector_size,
             )
-            logger.info(f"Created collection: {created_collection}")
+            logger.info(f"Successfully created collection '{collection_name}'")
+            return created_collection
         except InvalidVectorSizeError as e:
             logger.error(f"Invalid vector size: {e}")
             sys.exit(1)
@@ -74,11 +97,18 @@ class CLICommands:
             logger.error(str(e))
             sys.exit(1)
 
-    def delete_collection(self, collection_name: str) -> None:
-        """Delete an existing collection."""
+    def delete_collection(self, collection_name: str) -> Dict[str, Any]:
+        """
+        Delete an existing collection.
+
+        Returns:
+            Success status dictionary
+        """
+        logger.info(f"Deleting collection '{collection_name}'...")
         try:
             self.collection_service.delete_collection(collection_name)
-            logger.info(f"Deleted collection: {collection_name}")
+            logger.info(f"Successfully deleted collection '{collection_name}'")
+            return {"status": "ok", "collection": collection_name}
         except CollectionNotFoundError as e:
             logger.error(f"Collection not found: {e}")
             sys.exit(1)
@@ -93,11 +123,18 @@ class CLICommands:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
-    def clear_collection(self, collection_name: str) -> None:
-        """Clear all points from a collection."""
+    def clear_collection(self, collection_name: str) -> Dict[str, Any]:
+        """
+        Clear all points from a collection.
+
+        Returns:
+            Operation result dictionary
+        """
+        logger.info(f"Clearing collection '{collection_name}'...")
         try:
-            self.collection_service.clear_collection(collection_name)
-            logger.info(f"Cleared collection: {collection_name}")
+            result = self.collection_service.clear_collection(collection_name)
+            logger.info(f"Successfully cleared collection '{collection_name}'")
+            return result
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -106,11 +143,17 @@ class CLICommands:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
-    def list_collections(self) -> None:
-        """List all collections."""
+    def list_collections(self) -> List[Dict[str, Any]]:
+        """
+        List all collections.
+
+        Returns:
+            List of collection information dictionaries
+        """
         try:
             collections = self.collection_service.list_collections()
-            logger.info(f"Listed collections: {collections}")
+            logger.info(f"Listing collections: {collections}")
+            return collections
         except (
             DatabaseConnectionError,
             DatabaseTimeoutError,
@@ -119,13 +162,22 @@ class CLICommands:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
-    def get_collection_info(self, collection_name: str) -> None:
-        """Get information about a collection."""
+    def get_collection_info(self, collection_name: str) -> Dict[str, Any]:
+        """
+        Get information about a collection.
+
+        Returns:
+            Collection information dictionary
+        """
+        logger.info(f"Getting information for collection '{collection_name}'...")
         try:
             collection_info = self.collection_service.get_collection_info(
                 collection_name
             )
-            logger.info(f"Collection info: {collection_info}")
+            logger.info(
+                f"Successfully retrieved information for collection '{collection_name}'"
+            )
+            return collection_info
         except (
             CollectionNotFoundError,
             DatabaseConnectionError,
@@ -135,13 +187,16 @@ class CLICommands:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
-    def load_collection(self, collection_name: str, path: str) -> None:
+    def load_collection(self, collection_name: str, path: str) -> Dict[str, Any]:
         """
         Load ADRs from a directory into a collection.
 
         Args:
             collection_name: Name of the collection
             path: Path to ADR directory
+
+        Returns:
+            Success status dictionary with runtime information
 
         Raises:
             SystemExit: If path doesn't exist or collection doesn't exist
@@ -185,3 +240,11 @@ class CLICommands:
         elapsed = time.time() - start_time
         minutes, seconds = divmod(elapsed, 60)
         logger.info(f"Done! Total runtime: {int(minutes)}m {seconds:.1f}s")
+
+        return {
+            "status": "ok",
+            "collection": collection_name,
+            "path": adr_path,
+            "runtime_seconds": elapsed,
+            "runtime_formatted": f"{int(minutes)}m {seconds:.1f}s",
+        }
