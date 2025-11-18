@@ -29,4 +29,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SHA256 hashing for deterministic UUIDs with collision handling
 - Input validation for distance metrics
 
-[Unreleased]: https://github.com/cloro7/vdb-flow/compare/v0.1.0...HEAD
