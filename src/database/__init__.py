@@ -1,12 +1,28 @@
 """Database module following hexagonal architecture."""
 
 from typing import Optional, Callable, Dict, List
-from .port import VectorDatabase, CollectionNotFoundError, VectorDatabaseError
+from .port import (
+    VectorDatabase,
+    VectorDatabaseError,
+    CollectionNotFoundError,
+    CollectionAlreadyExistsError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+    DatabaseConnectionError,
+    DatabaseTimeoutError,
+    DatabaseOperationError,
+)
 
 __all__ = [
     "VectorDatabase",
     "VectorDatabaseError",
     "CollectionNotFoundError",
+    "CollectionAlreadyExistsError",
+    "InvalidCollectionNameError",
+    "InvalidVectorSizeError",
+    "DatabaseConnectionError",
+    "DatabaseTimeoutError",
+    "DatabaseOperationError",
     "create_vector_database",
     "register_adapter",
     "get_available_adapters",

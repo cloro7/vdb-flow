@@ -8,14 +8,19 @@ from typing import List, Dict, Any, Tuple, Optional
 from tqdm import tqdm
 
 from ..constants import DEFAULT_BATCH_SIZE
-from ..database.port import VectorDatabase, CollectionNotFoundError
+from ..database.port import (
+    VectorDatabase,
+    CollectionNotFoundError,
+    InvalidCollectionNameError,
+    InvalidVectorSizeError,
+)
 from ..validation import (
     validate_collection_name,
     validate_distance_metric,
     validate_path,
 )
 from .text_processing import clean_text, chunk_text
-from .embedding import get_embedding
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +31,37 @@ BATCH_SIZE = DEFAULT_BATCH_SIZE
 class CollectionService:
     """Service for managing ADR collections."""
 
-    def __init__(self, db_client: VectorDatabase):
+    def __init__(
+        self,
+        db_client: VectorDatabase,
+        embedding_func: Optional[Callable[[str], List[float]]] = None,
+    ):
         """
         Initialize collection service.
 
         Args:
             db_client: Vector database client implementing VectorDatabase port
+            embedding_func: Function to generate embeddings. If None, will use default.
         """
         self.db_client = db_client
+        self._embedding_func = embedding_func
+
+    def _get_embedding(self, text: str) -> List[float]:
+        """
+        Get embedding using the configured embedding function.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            Embedding vector
+        """
+        if self._embedding_func is None:
+            # Fallback to default if not provided
+            from .embedding import get_embedding
+
+            return get_embedding(text)
+        return self._embedding_func(text)
 
     @staticmethod
     def _read_file_with_fallback(file_path: str, rel_path: str) -> str:
@@ -88,11 +116,16 @@ class CollectionService:
             Collection information
 
         Raises:
-            ValueError: If collection name or distance metric is invalid
+            InvalidCollectionNameError: If collection name is invalid
+            InvalidVectorSizeError: If vector size is invalid
         """
         from ..config import get_config
 
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
+
         validate_distance_metric(distance_metric)
 
         # Get vector size from config if not provided
@@ -102,7 +135,7 @@ class CollectionService:
 
         # Validate vector size is positive
         if vector_size <= 0:
-            raise ValueError(
+            raise InvalidVectorSizeError(
                 f"vector_size must be positive, got {vector_size}. "
                 f"Vector dimensions must be greater than zero."
             )
@@ -122,9 +155,12 @@ class CollectionService:
             collection_name: Name of the collection to delete
 
         Raises:
-            ValueError: If collection name is invalid
+            InvalidCollectionNameError: If collection name is invalid
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         self.db_client.delete_collection(collection_name)
 
     def clear_collection(self, collection_name: str) -> Dict[str, Any]:
@@ -138,9 +174,12 @@ class CollectionService:
             Operation result
 
         Raises:
-            ValueError: If collection name is invalid
+            InvalidCollectionNameError: If collection name is invalid
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         return self.db_client.clear_collection(collection_name)
 
     def list_collections(self) -> List[Dict[str, Any]]:
@@ -163,9 +202,12 @@ class CollectionService:
             Collection information
 
         Raises:
-            ValueError: If collection name is invalid
+            InvalidCollectionNameError: If collection name is invalid
         """
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         return self.db_client.get_collection_info(collection_name)
 
     def _validate_collection_exists(self, collection_name: str) -> None:
@@ -272,7 +314,7 @@ class CollectionService:
             self.db_client.upload_chunks_batch(
                 collection_name,
                 batch,
-                get_embedding,
+                self._get_embedding,
                 progress_callback=progress_callback,
             )
             processed = len(batch)
@@ -288,7 +330,7 @@ class CollectionService:
                         chunk_content,
                         file_name,
                         chunk_id,
-                        get_embedding,
+                        self._get_embedding,
                     )
                     processed += 1
                     pbar.update(1)
@@ -311,7 +353,10 @@ class CollectionService:
             UnicodeDecodeError: If file encoding cannot be handled
         """
         # Validate inputs
-        validate_collection_name(collection_name)
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
         validated_path = validate_path(path, must_exist=True)
 
         # Validate that collection exists
