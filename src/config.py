@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Default configuration values
 DEFAULT_CONFIG = {
     "database": {
-        "type": "qdrant",  # Options: "qdrant", "pinecone", "weaviate", etc.
+        "type": "qdrant",  # Options: "qdrant", "inmemory" (for testing/dev), "pinecone", "weaviate", etc.
         "url": "http://localhost:6333",
     },
     "ollama": {
