@@ -115,14 +115,12 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
-    """Execute the main CLI entry point."""
-    setup_logging()
+def _get_commands() -> CLICommands:
+    """
+    Lazy initialization of CLI commands with database client.
 
-    parser = create_parser()
-    args = parser.parse_args()
-
-    # Initialize database client and CLI commands
+    Only initializes the database stack when actually needed.
+    """
     config = get_config()
     db_client = create_vector_database(
         db_type=config.database_type,
@@ -130,9 +128,24 @@ def main():
             config.qdrant_url if config.database_type.lower() == "qdrant" else None
         ),
     )
-    commands = CLICommands(db_client)
+    return CLICommands(db_client)
 
-    # Route commands
+
+def main():
+    """Execute the main CLI entry point."""
+    setup_logging()
+
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Route commands - only initialize database for commands that need it
+    if args.action == "version":
+        _show_version()
+        return
+
+    # Commands that need database access
+    commands = _get_commands()
+
     if args.action == "create":
         # Default to hybrid=True, unless --no-hybrid is specified
         enable_hybrid = not getattr(args, "no_hybrid", False)
@@ -154,8 +167,6 @@ def main():
         commands.get_collection_info(args.collection)
     elif args.action == "load":
         commands.load_collection(args.collection, args.path)
-    elif args.action == "version":
-        _show_version()
     else:
         parser.print_help()
         sys.exit(1)
