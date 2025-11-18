@@ -215,3 +215,63 @@ jobs:
           name: dist
           path: dist/
           retention-days: 7
+
+  update-changelog:
+    name: Update Changelog
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=$(echo $TAG | sed 's/^v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Updating changelog for version: $VERSION (tag: $TAG)"
+
+      - name: Set up virtual environment
+        run: python -m venv venv
+
+      - name: Install dependencies
+        run: |
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install setuptools-scm
+
+      - name: Update CHANGELOG.md
+        run: |
+          source venv/bin/activate
+          python scripts/update_changelog.py \
+            "${{ steps.get_version.outputs.version }}" \
+            "${{ steps.get_version.outputs.tag }}" \
+            "${{ github.repository }}"
+          echo "Updated CHANGELOG.md:"
+          head -25 CHANGELOG.md
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push CHANGELOG.md
+        run: |
+          git add CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No changes to CHANGELOG.md"
+          else
+            git commit -m "chore: update CHANGELOG.md for release ${{ steps.get_version.outputs.version }}"
+            git push origin ${{ github.ref_name }}
+          fi
