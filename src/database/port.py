@@ -6,6 +6,18 @@ from typing import List, Dict, Any, Callable, Tuple, Optional
 from ..constants import DEFAULT_VECTOR_SIZE
 
 
+class VectorDatabaseError(Exception):
+    """Base exception for vector database operations."""
+
+    pass
+
+
+class CollectionNotFoundError(VectorDatabaseError):
+    """Exception raised when a collection is not found."""
+
+    pass
+
+
 class VectorDatabase(ABC):
     """Abstract interface for vector database operations (port)."""
 

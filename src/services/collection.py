@@ -8,8 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from tqdm import tqdm
 
 from ..constants import DEFAULT_BATCH_SIZE
-from ..database.port import VectorDatabase
-from ..database.adapters.qdrant import QdrantCollectionNotFoundError
+from ..database.port import VectorDatabase, CollectionNotFoundError
 from ..validation import (
     validate_collection_name,
     validate_distance_metric,
@@ -186,7 +185,7 @@ class CollectionService:
                     f"Collection '{collection_name}' does not exist. "
                     f"Please create it first using the 'create' command."
                 )
-        except QdrantCollectionNotFoundError:
+        except CollectionNotFoundError:
             raise ValueError(
                 f"Collection '{collection_name}' does not exist. "
                 f"Please create it first using the 'create' command."
