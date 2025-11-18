@@ -301,8 +301,16 @@ def test_load_collection_invalid_path(collection_service, test_collection):
 
 
 def test_load_collection_security_vulnerabilities(collection_service, test_collection):
-    """Test that load_collection raises ValueError for path traversal attempts."""
-    with pytest.raises(ValueError, match="Path contains invalid traversal"):
-        collection_service.load_collection(
-            test_collection, "../../../../../../../../../../etc/passwd"
-        )
+    """Test that load_collection raises ValueError for path traversal to system directories."""
+    # Test that paths resolving to always-blocked system directories are blocked
+    # /etc, /root are optional and only warn by default, so we test always-blocked ones
+    always_blocked_paths = [
+        "../../../../../../../../../../proc/cpuinfo",
+        "../../../../../../../../../../sys/kernel",
+        "../../../../../../../../../../dev/null",
+    ]
+    for path in always_blocked_paths:
+        with pytest.raises(
+            ValueError, match="Path resolves to restricted system directory"
+        ):
+            collection_service.load_collection(test_collection, path)

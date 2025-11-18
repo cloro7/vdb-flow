@@ -29,3 +29,22 @@ rate_limiting:
   disabled: false  # Set to true to disable rate limiting (DEVELOPMENT ONLY - not recommended for production)
   db_requests_per_second: 100  # Maximum database requests per second
   embedding_requests_per_second: 10  # Maximum embedding API requests per second
+
+# Security configuration
+security:
+  # Additional directories to block (beyond always-blocked virtual filesystems)
+  # Always-blocked: /proc, /sys, /dev, /run, /var/run (virtual filesystems)
+  # Optional system dirs (add here to block): /etc, /root, /boot, /sbin, /usr/sbin
+  # Custom paths: You can add any custom directory path to block
+  # IMPORTANT: All paths must be absolute (or use ~ which expands to absolute)
+  # Relative paths are NOT allowed for security reasons (they would resolve differently
+  # depending on where the CLI is executed, making security rules non-deterministic)
+  # If not listed, optional system paths will only generate warnings
+  restricted_paths: []
+  # Example: To block /etc, /root, and custom directories, uncomment:
+  # restricted_paths:
+  #   - /etc                    # System configuration directory (absolute path)
+  #   - /root                   # Root user home directory (absolute path)
+  #   - /mnt/secrets            # Custom restricted directory (absolute path)
+  #   - ~/private               # User's private directory (expands to /home/user/private)
+  #   - /var/sensitive          # Another custom restricted directory (absolute path)

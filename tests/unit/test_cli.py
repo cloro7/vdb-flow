@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from src.cli.main import create_parser
 from src.cli.commands import CLICommands
+from src.database.port import InvalidVectorSizeError
 
 
 def test_create_parser_has_all_commands():
@@ -247,29 +248,37 @@ def test_create_collection_with_all_options():
 
 
 def test_create_collection_invalid_vector_size_zero():
-    """Test create_collection raises ValueError for zero vector size."""
+    """Test create_collection exits with SystemExit for zero vector size."""
     mock_db_client = Mock()
     commands = CLICommands(mock_db_client)
 
     commands.collection_service.create_collection = Mock(
-        side_effect=ValueError("vector_size must be positive, got 0")
+        side_effect=InvalidVectorSizeError(
+            "vector_size must be positive, got 0. Vector dimensions must be greater than zero."
+        )
     )
 
-    with pytest.raises(ValueError, match="vector_size must be positive"):
+    with pytest.raises(SystemExit) as exc_info:
         commands.create_collection("test-collection", vector_size=0)
+
+    assert exc_info.value.code == 1
 
 
 def test_create_collection_invalid_vector_size_negative():
-    """Test create_collection raises ValueError for negative vector size."""
+    """Test create_collection exits with SystemExit for negative vector size."""
     mock_db_client = Mock()
     commands = CLICommands(mock_db_client)
 
     commands.collection_service.create_collection = Mock(
-        side_effect=ValueError("vector_size must be positive, got -256")
+        side_effect=InvalidVectorSizeError(
+            "vector_size must be positive, got -256. Vector dimensions must be greater than zero."
+        )
     )
 
-    with pytest.raises(ValueError, match="vector_size must be positive"):
+    with pytest.raises(SystemExit) as exc_info:
         commands.create_collection("test-collection", vector_size=-256)
+
+    assert exc_info.value.code == 1
 
 
 def test_delete_collection():
