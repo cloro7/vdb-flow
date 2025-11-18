@@ -17,31 +17,24 @@ For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
-### From GitHub Packages
+### From Git Repository
 
-Install the latest published version from GitHub Packages. You'll need a GitHub personal access token with `read:packages` permission.
-
-Configure pip authentication by creating/updating `~/.pip/pip.conf`:
-
-```ini
-[global]
-extra-index-url = https://pypi.python.org/pypi
-```
-
-Or use environment variables:
+Install directly from the GitHub repository:
 
 ```bash
-export PIP_EXTRA_INDEX_URL="https://pypi.python.org/pypi"
-export PIP_INDEX_URL="https://pypi.org/simple"
+pip install git+https://github.com/cloro7/vdb-manager.git
 ```
 
-Then install:
+To install a specific branch or tag:
 
 ```bash
-pip install vdb-manager
+# Install from a specific branch
+pip install git+https://github.com/cloro7/vdb-manager.git@branch-name
+
+# Install from a specific tag
+pip install git+https://github.com/cloro7/vdb-manager.git@v1.0.0
 ```
 
-For more details, see the [GitHub Packages documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-python-package-registry).
 
 ### From Source
 
