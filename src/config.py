@@ -10,6 +10,7 @@ from .constants import (
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_DB_RATE_LIMIT,
     DEFAULT_EMBEDDING_RATE_LIMIT,
+    DEFAULT_VECTOR_SIZE,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ DEFAULT_CONFIG = {
         "url": "http://localhost:11434/api/embeddings",
         "model": "nomic-embed-text:latest",
         "timeout": 60,
+        "vector_size": DEFAULT_VECTOR_SIZE,  # Default vector size for embeddings
     },
     "text_processing": {
         "chunk_size": DEFAULT_CHUNK_SIZE,
@@ -130,6 +132,7 @@ class Config:
         if ollama_model := os.getenv("OLLAMA_MODEL"):
             self._config["ollama"]["model"] = ollama_model
         self._set_int_env("OLLAMA_TIMEOUT", "ollama", "timeout")
+        self._set_int_env("VECTOR_SIZE", "ollama", "vector_size")
 
         # Text processing settings
         self._set_int_env("CHUNK_SIZE", "text_processing", "chunk_size")
@@ -192,6 +195,11 @@ class Config:
     def ollama_timeout(self) -> int:
         """Get Ollama request timeout."""
         return self._config["ollama"]["timeout"]
+
+    @property
+    def vector_size(self) -> int:
+        """Get vector size for embeddings."""
+        return self._config["ollama"].get("vector_size", DEFAULT_VECTOR_SIZE)
 
     @property
     def chunk_size(self) -> int:

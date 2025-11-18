@@ -52,15 +52,22 @@ def create_parser() -> argparse.ArgumentParser:
     )
     create_parser.add_argument("collection", help="Name of the collection to create.")
     create_parser.add_argument(
-        "distance",
-        nargs="?",
+        "--distance",
+        type=str,
         default="Cosine",
-        help="Distance metric to use (Cosine, Euclid, Dot).",
+        choices=["Cosine", "Euclid", "Dot"],
+        help="Distance metric to use (default: Cosine).",
     )
     create_parser.add_argument(
         "--no-hybrid",
         action="store_true",
         help="Disable hybrid search (use semantic search only).",
+    )
+    create_parser.add_argument(
+        "--vector-size",
+        type=int,
+        default=None,
+        help="Size of embedding vectors (defaults to config value, typically 768).",
     )
 
     # List command
@@ -98,8 +105,13 @@ def main():
     if args.action == "create":
         # Default to hybrid=True, unless --no-hybrid is specified
         enable_hybrid = not getattr(args, "no_hybrid", False)
+        vector_size = getattr(args, "vector_size", None)
+        distance_metric = getattr(args, "distance", "Cosine")
         commands.create_collection(
-            args.collection, args.distance, enable_hybrid=enable_hybrid
+            args.collection,
+            distance_metric,
+            enable_hybrid=enable_hybrid,
+            vector_size=vector_size,
         )
     elif args.action == "delete":
         commands.delete_collection(args.collection)
