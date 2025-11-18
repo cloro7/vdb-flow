@@ -374,14 +374,18 @@ class CollectionService:
             validate_collection_name(collection_name)
         except ValueError as e:
             raise InvalidCollectionNameError(str(e)) from e
-        # Get restricted paths from config if available
+        # Get restricted paths and glob patterns from config if available
         config = self._get_config()
         restricted_paths = getattr(config, "restricted_paths", None)
+        denied_patterns = getattr(config, "denied_patterns", None) if config else None
+        allowed_patterns = getattr(config, "allowed_patterns", None) if config else None
         validated_path = validate_path(
             path,
             must_exist=True,
             restricted_paths=restricted_paths,
             warn_on_optional=True,
+            denied_patterns=denied_patterns,
+            allowed_patterns=allowed_patterns,
         )
 
         # Validate that collection exists
