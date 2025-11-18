@@ -1,6 +1,6 @@
-# VDB Manager
+# VDB Flow
 
-[![CI](https://github.com/cloro7/vdb-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/cloro7/vdb-manager/actions/workflows/ci.yml)
+[![CI](https://github.com/cloro7/vdb-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/cloro7/vdb-flow/actions/workflows/ci.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -28,17 +28,17 @@ For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
 Install directly from the GitHub repository:
 
 ```bash
-pip install git+https://github.com/cloro7/vdb-manager.git
+pip install git+https://github.com/cloro7/vdb-flow.git
 ```
 
 To install a specific branch or tag:
 
 ```bash
 # Install from a specific branch
-pip install git+https://github.com/cloro7/vdb-manager.git@branch-name
+pip install git+https://github.com/cloro7/vdb-flow.git@branch-name
 
 # Install from a specific tag
-pip install git+https://github.com/cloro7/vdb-manager.git@v1.0.0
+pip install git+https://github.com/cloro7/vdb-flow.git@v1.0.0
 ```
 
 
@@ -48,7 +48,7 @@ Clone the repository and install in development mode:
 
 ```bash
 git clone <repository-url>
-cd vdb-manager
+cd vdb-flow
 pip install -e .
 ```
 
@@ -59,7 +59,7 @@ Build and install the package:
 ```bash
 pip install build
 python -m build
-pip install dist/vdb-manager-*.whl
+pip install dist/vdb-flow-*.whl
 ```
 
 Or install directly from the source directory:
@@ -90,35 +90,35 @@ The CLI provides commands for managing your vector database collections and load
 Create a new collection with hybrid search enabled (default):
 
 ```bash
-vdb-manager create my-adr-collection
+vdb-flow create my-adr-collection
 ```
 
 Create a collection with a specific distance metric:
 
 ```bash
-vdb-manager create my-adr-collection --distance Cosine
-vdb-manager create my-adr-collection --distance Euclid
-vdb-manager create my-adr-collection --distance Dot
+vdb-flow create my-adr-collection --distance Cosine
+vdb-flow create my-adr-collection --distance Euclid
+vdb-flow create my-adr-collection --distance Dot
 ```
 
 Create a collection with semantic search only (disable hybrid search):
 
 ```bash
-vdb-manager create my-adr-collection --distance Cosine --no-hybrid
+vdb-flow create my-adr-collection --distance Cosine --no-hybrid
 ```
 
 Create a collection with a custom vector size:
 
 ```bash
-vdb-manager create my-adr-collection --vector-size 1024
+vdb-flow create my-adr-collection --vector-size 1024
 ```
 
 #### Check Version
 
-Display the version of vdb-manager:
+Display the version of vdb-flow:
 
 ```bash
-vdb-manager version
+vdb-flow version
 ```
 
 #### Load ADRs into a Collection
@@ -126,7 +126,7 @@ vdb-manager version
 Load all markdown files from a directory (recursively) into a collection:
 
 ```bash
-vdb-manager load my-adr-collection /path/to/adr/directory
+vdb-flow load my-adr-collection /path/to/adr/directory
 ```
 
 The tool will:
@@ -138,7 +138,7 @@ The tool will:
 Example:
 
 ```bash
-vdb-manager load my-adr-collection ~/projects/my-project/docs/adr
+vdb-flow load my-adr-collection ~/projects/my-project/docs/adr
 ```
 
 #### List Collections
@@ -146,7 +146,7 @@ vdb-manager load my-adr-collection ~/projects/my-project/docs/adr
 List all collections in your vector database instance:
 
 ```bash
-vdb-manager list
+vdb-flow list
 ```
 
 #### Get Collection Information
@@ -154,7 +154,7 @@ vdb-manager list
 Get detailed information about a specific collection:
 
 ```bash
-vdb-manager info my-adr-collection
+vdb-flow info my-adr-collection
 ```
 
 #### Clear a Collection
@@ -162,7 +162,7 @@ vdb-manager info my-adr-collection
 Remove all vectors from a collection without deleting the collection itself:
 
 ```bash
-vdb-manager clear my-adr-collection
+vdb-flow clear my-adr-collection
 ```
 
 #### Delete a Collection
@@ -170,19 +170,19 @@ vdb-manager clear my-adr-collection
 Permanently delete a collection:
 
 ```bash
-vdb-manager delete my-adr-collection
+vdb-flow delete my-adr-collection
 ```
 
 ## Configuration
 
-VDB Manager can be configured via a `config.yaml` file or environment variables. A complete example configuration file is available at `examples/config.example.yaml`.
+VDB Flow can be configured via a `config.yaml` file or environment variables. A complete example configuration file is available at `examples/config.example.yaml`.
 
 ### Configuration Precedence
 
 Configuration values are loaded in the following order (later sources override earlier ones):
 
 1. **Default values** - Hardcoded defaults in the application
-2. **Config file** (`~/.vdb-manager/config.yaml` or `~/.vdb-manager/config.yml`) - Values from the configuration file override defaults
+2. **Config file** (`~/.vdb-flow/config.yaml` or `~/.vdb-flow/config.yml`) - Values from the configuration file override defaults
 3. **Environment variables** - Environment variables override both defaults and config file values
 
 This means:
@@ -192,23 +192,23 @@ This means:
 
 **Example:**
 ```bash
-# ~/.vdb-manager/config.yaml (or config.yml) has: db_requests_per_second: 100
+# ~/.vdb-flow/config.yaml (or config.yml) has: db_requests_per_second: 100
 # Environment has: DB_RATE_LIMIT=200
 # Result: 200 (environment variable wins)
 ```
 
 ### Configuration File
 
-The configuration file is located at `~/.vdb-manager/config.yaml` or `~/.vdb-manager/config.yml` (both are supported, with `config.yaml` taking precedence if both exist). Copy the example configuration file to this location:
+The configuration file is located at `~/.vdb-flow/config.yaml` or `~/.vdb-flow/config.yml` (both are supported, with `config.yaml` taking precedence if both exist). Copy the example configuration file to this location:
 
 ```bash
-mkdir -p ~/.vdb-manager
-cp examples/config.example.yaml ~/.vdb-manager/config.yaml
+mkdir -p ~/.vdb-flow
+cp examples/config.example.yaml ~/.vdb-flow/config.yaml
 # or
-cp examples/config.example.yaml ~/.vdb-manager/config.yml
+cp examples/config.example.yaml ~/.vdb-flow/config.yml
 ```
 
-The `~/.vdb-manager/` directory will be created automatically if it doesn't exist when you first run VDB Manager. However, you'll need to create the `config.yaml` or `config.yml` file manually if you want to customize settings.
+The `~/.vdb-flow/` directory will be created automatically if it doesn't exist when you first run VDB Flow. However, you'll need to create the `config.yaml` or `config.yml` file manually if you want to customize settings.
 
 Then customize the settings as needed. The configuration file supports:
 
@@ -239,12 +239,12 @@ Example:
 export QDRANT_URL="http://localhost:6333"
 export OLLAMA_URL="http://localhost:11434/api/embeddings"
 export DB_RATE_LIMIT=200
-vdb-manager create my-collection
+vdb-flow create my-collection
 ```
 
 ## Security
 
-VDB Manager implements multiple security measures to protect against common vulnerabilities and ensure safe operation.
+VDB Flow implements multiple security measures to protect against common vulnerabilities and ensure safe operation.
 
 ### Input Validation
 
@@ -377,7 +377,7 @@ All paths are normalized (expanded, resolved) before being checked. Paths that e
 2. **Access Control**: Ensure proper network-level access controls for your Qdrant instance
 3. **Environment Variables**: Store sensitive configuration (like API keys) in environment variables rather than config files
 4. **Rate Limits**: Adjust rate limits based on your infrastructure capacity and requirements. **Never disable rate limiting in production** - it's a critical security feature that prevents abuse and DoS attacks
-5. **File Permissions**: Ensure config files have appropriate file permissions (e.g., `chmod 600 ~/.vdb-manager/config.yaml` or `chmod 600 ~/.vdb-manager/config.yml`)
+5. **File Permissions**: Ensure config files have appropriate file permissions (e.g., `chmod 600 ~/.vdb-flow/config.yaml` or `chmod 600 ~/.vdb-flow/config.yml`)
 
 ## Requirements
 
@@ -398,7 +398,7 @@ This architecture allows you to add support for other vector databases (e.g., Pi
 
 ## Extensibility
 
-VDB Manager uses a **pluggable adapter registry system** that makes the hexagonal architecture practical and extensible. You can add custom database adapters without modifying core code.
+VDB Flow uses a **pluggable adapter registry system** that makes the hexagonal architecture practical and extensible. You can add custom database adapters without modifying core code.
 
 ### Creating a Custom Adapter
 
@@ -431,14 +431,14 @@ db = create_vector_database("mydb", api_key="...")
 Third-party packages can register adapters via setuptools entry points in their `pyproject.toml`:
 
 ```toml
-[project.entry-points."vdb_manager.adapters"]
-pinecone = "vdb_manager_pinecone:register_pinecone_adapter"
+[project.entry-points."vdb_flow.adapters"]
+pinecone = "vdb_flow_pinecone:register_pinecone_adapter"
 ```
 
 The entry point should be a callable function that registers the adapter. For example:
 
 ```python
-# In vdb_manager_pinecone package
+# In vdb_flow_pinecone package
 from src.database import register_adapter
 from .pinecone_adapter import PineconeVectorDatabase
 
@@ -484,7 +484,7 @@ Or via environment variable:
 
 ```bash
 export VECTOR_DB_TYPE=inmemory
-vdb-manager create test-collection
+vdb-flow create test-collection
 ```
 
 Note: Data stored in the in-memory adapter is lost when the process exits. This adapter is not suitable for production use.

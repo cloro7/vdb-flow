@@ -18,7 +18,7 @@ def setup_logging():
 
 
 def _show_version():
-    """Display the version of vdb-manager."""
+    """Display the version of vdb-flow."""
     try:
         # Try to import version from setuptools_scm generated file
         try:
@@ -30,19 +30,19 @@ def _show_version():
             try:
                 from importlib.metadata import version as get_version
 
-                version_str = get_version("vdb-manager")
+                version_str = get_version("vdb-flow")
             except ImportError:
                 # Python < 3.8 fallback
                 try:
                     from importlib_metadata import version as get_version
 
-                    version_str = get_version("vdb-manager")
+                    version_str = get_version("vdb-flow")
                 except ImportError:
                     version_str = "unknown"
 
-        print(f"vdb-manager {version_str}")
+        print(f"vdb-flow {version_str}")
     except Exception:
-        print("vdb-manager unknown")
+        print("vdb-flow unknown")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -109,7 +109,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Version command
-    subparsers.add_parser("version", help="Show the version of vdb-manager.")
+    subparsers.add_parser("version", help="Show the version of vdb-flow.")
 
     return parser
 

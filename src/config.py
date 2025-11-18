@@ -60,7 +60,7 @@ class Config:
         Initialize configuration.
 
         Args:
-            config_path: Path to config file. If None, looks for config.yaml or config.yml in ~/.vdb-manager/.
+            config_path: Path to config file. If None, looks for config.yaml or config.yml in ~/.vdb-flow/.
         """
         self._config = DEFAULT_CONFIG.copy()
 
@@ -68,7 +68,7 @@ class Config:
         if config_path is None:
             # Look for config.yaml or config.yml in user's home directory
             home_dir = Path.home()
-            config_dir = home_dir / ".vdb-manager"
+            config_dir = home_dir / ".vdb-flow"
             # Create directory if it doesn't exist (but don't create the file)
             config_dir.mkdir(mode=0o755, exist_ok=True)
 
