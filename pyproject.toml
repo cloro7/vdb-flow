@@ -42,6 +42,12 @@ dev = [
 [project.scripts]
 vdb-manager = "src.cli.main:main"
 
+[project.entry-points."vdb_manager.adapters"]
+# Entry points for third-party database adapters
+# Example:
+# pinecone = "vdb_manager_pinecone:register_pinecone_adapter"
+# weaviate = "vdb_manager_weaviate:register_weaviate_adapter"
+
 [project.urls]
 Homepage = "https://github.com/cloro7/vdb-manager"
 Repository = "https://github.com/cloro7/vdb-manager"
@@ -57,7 +63,9 @@ exclude = ["tests*", "*.tests*", "*.tests"]
 
 [tool.setuptools_scm]
 write_to = "src/_version.py"
-version_scheme = "release-branch-semver"
+# Use default version scheme: if on a tag, use tag version; otherwise tag version + .devN
+# This ensures versions come from git tags following semantic versioning
+version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 
 [tool.setuptools.package-data]

@@ -3,13 +3,12 @@
 import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 from tqdm import tqdm
 
 from ..constants import DEFAULT_BATCH_SIZE
-from ..database.port import VectorDatabase
-from ..database.adapters.qdrant import QdrantCollectionNotFoundError
+from ..database.port import VectorDatabase, CollectionNotFoundError
 from ..validation import (
     validate_collection_name,
     validate_distance_metric,
@@ -74,6 +73,7 @@ class CollectionService:
         collection_name: str,
         distance_metric: str = "Cosine",
         enable_hybrid: bool = True,
+        vector_size: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a new collection.
@@ -82,6 +82,7 @@ class CollectionService:
             collection_name: Name of the collection
             distance_metric: Distance metric to use (Cosine, Euclid, Dot)
             enable_hybrid: Enable hybrid search with sparse vectors
+            vector_size: Size of embedding vectors (defaults to config value)
 
         Returns:
             Collection information
@@ -89,10 +90,28 @@ class CollectionService:
         Raises:
             ValueError: If collection name or distance metric is invalid
         """
+        from ..config import get_config
+
         validate_collection_name(collection_name)
         validate_distance_metric(distance_metric)
+
+        # Get vector size from config if not provided
+        if vector_size is None:
+            config = get_config()
+            vector_size = config.vector_size
+
+        # Validate vector size is positive
+        if vector_size <= 0:
+            raise ValueError(
+                f"vector_size must be positive, got {vector_size}. "
+                f"Vector dimensions must be greater than zero."
+            )
+
         return self.db_client.create_collection(
-            collection_name, distance_metric, enable_hybrid=enable_hybrid
+            collection_name,
+            distance_metric,
+            vector_size=vector_size,
+            enable_hybrid=enable_hybrid,
         )
 
     def delete_collection(self, collection_name: str) -> None:
@@ -166,7 +185,7 @@ class CollectionService:
                     f"Collection '{collection_name}' does not exist. "
                     f"Please create it first using the 'create' command."
                 )
-        except QdrantCollectionNotFoundError:
+        except CollectionNotFoundError:
             raise ValueError(
                 f"Collection '{collection_name}' does not exist. "
                 f"Please create it first using the 'create' command."

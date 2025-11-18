@@ -26,6 +26,9 @@ def chunk_text(
 
     Returns:
         List of text chunks
+
+    Raises:
+        ValueError: If chunk_size <= overlap (would produce invalid or empty chunks)
     """
     config = get_config()
     if chunk_size is None:
@@ -33,9 +36,17 @@ def chunk_text(
     if overlap is None:
         overlap = config.chunk_overlap
 
+    # Validate that chunk_size > overlap to ensure positive step size
+    if chunk_size <= overlap:
+        raise ValueError(
+            f"chunk_size ({chunk_size}) must be greater than overlap ({overlap}). "
+            f"Otherwise, chunks would overlap completely or have no progression."
+        )
+
     words = text.split()
     chunks = []
-    for i in range(0, len(words), chunk_size - overlap):
+    step_size = chunk_size - overlap
+    for i in range(0, len(words), step_size):
         chunk = " ".join(words[i : i + chunk_size])
         if chunk:
             chunks.append(chunk)

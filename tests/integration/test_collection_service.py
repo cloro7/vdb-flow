@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 
 from src.database import VectorDatabase, create_vector_database
-from src.database.adapters.qdrant import QdrantCollectionNotFoundError
+from src.database.port import CollectionNotFoundError
 from src.services.collection import CollectionService
 
 
@@ -94,14 +94,14 @@ def test_delete_collection(collection_service, test_collection):
     collection_service.delete_collection(test_collection)
 
     # Verify collection no longer exists
-    with pytest.raises(QdrantCollectionNotFoundError):
+    with pytest.raises(CollectionNotFoundError):
         collection_service.get_collection_info(test_collection)
 
 
 def test_get_collection_info_nonexistent(collection_service):
-    """Test that get_collection_info raises QdrantCollectionNotFoundError for non-existent collection."""
+    """Test that get_collection_info raises CollectionNotFoundError for non-existent collection."""
     non_existent_collection = "non-existent-collection-12345"
-    with pytest.raises(QdrantCollectionNotFoundError):
+    with pytest.raises(CollectionNotFoundError):
         collection_service.get_collection_info(non_existent_collection)
 
 
