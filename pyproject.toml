@@ -37,6 +37,8 @@ dev = [
     "black>=22.0.0",
     "flake8>=5.0.0",
     "pre-commit>=3.0.0",
+    "bandit>=1.7.10",
+    "pip-audit>=2.7.0",
 ]
 
 [project.scripts]
