@@ -4,11 +4,11 @@ import pytest
 from unittest.mock import Mock, patch
 from requests.exceptions import Timeout, ConnectionError, RequestException
 
-from src.database.adapters.qdrant import (
+from vdb_flow.database.adapters.qdrant import (
     QdrantVectorDatabase,
     QdrantCollectionNotFoundError,
 )
-from src.database.port import (
+from vdb_flow.database.port import (
     DatabaseConnectionError,
     DatabaseTimeoutError,
     DatabaseOperationError,
@@ -26,7 +26,7 @@ def qdrant_url():
 def qdrant_client(qdrant_url):
     """Create a QdrantVectorDatabase instance with mocked config."""
     # Patch get_config before creating the client
-    with patch("src.config.get_config") as mock_get_config:
+    with patch("vdb_flow.config.get_config") as mock_get_config:
         mock_config = Mock()
         mock_config.qdrant_url = qdrant_url
         mock_get_config.return_value = mock_config
@@ -45,7 +45,7 @@ class TestQdrantVectorDatabaseInit:
 
     def test_init_without_url(self):
         """Test initialization without URL (uses config)."""
-        with patch("src.config.get_config") as mock_get_config:
+        with patch("vdb_flow.config.get_config") as mock_get_config:
             mock_config = Mock()
             mock_config.qdrant_url = "http://custom:6333"
             mock_get_config.return_value = mock_config
@@ -64,8 +64,8 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_success(self, qdrant_client):
         """Test successful request."""
-        with patch("src.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
+        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
+            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
         ) as mock_limiter:
             mock_response = Mock()
             mock_response.status_code = 200
@@ -79,9 +79,9 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_with_json(self, qdrant_client):
         """Test request with JSON payload."""
-        with patch("src.database.adapters.qdrant.requests.post") as mock_post, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
-        ):
+        with patch(
+            "vdb_flow.database.adapters.qdrant.requests.post"
+        ) as mock_post, patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"):
             mock_response = Mock()
             mock_response.status_code = 200
             mock_post.return_value = mock_response
@@ -97,8 +97,8 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_timeout(self, qdrant_client):
         """Test request timeout handling."""
-        with patch("src.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
+        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
+            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
         ):
             mock_get.side_effect = Timeout("Connection timeout")
 
@@ -110,8 +110,8 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_connection_error(self, qdrant_client):
         """Test connection error handling."""
-        with patch("src.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
+        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
+            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
         ):
             mock_get.side_effect = ConnectionError("Connection failed")
 
@@ -123,8 +123,8 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_generic_error(self, qdrant_client):
         """Test generic request error handling."""
-        with patch("src.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
+        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
+            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
         ):
             mock_get.side_effect = RequestException("Request failed")
 
@@ -266,7 +266,7 @@ class TestQdrantVectorDatabaseDeleteCollection:
         ) as mock_exists, patch.object(
             qdrant_client, "_make_request"
         ) as mock_request, patch(
-            "src.database.adapters.qdrant.db_rate_limiter"
+            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
         ):
             mock_exists.return_value = False
             # Simulate successful DELETE response (Qdrant returns 200 even for non-existent)

@@ -4,9 +4,9 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from src.database import create_vector_database, get_available_adapters
-from src.services.collection import CollectionService
-from src.services.embedding import get_embedding
+from vdb_flow.database import create_vector_database, get_available_adapters
+from vdb_flow.services.collection import CollectionService
+from vdb_flow.services.embedding import get_embedding
 
 
 @pytest.fixture
@@ -93,7 +93,7 @@ class TestInMemoryCollectionOperations:
 
     def test_get_collection_info_not_found(self, inmemory_client):
         """Test getting info for non-existent collection."""
-        from src.database import CollectionNotFoundError
+        from vdb_flow.database import CollectionNotFoundError
 
         with pytest.raises(CollectionNotFoundError):
             inmemory_client.get_collection_info("non-existent")
@@ -105,14 +105,14 @@ class TestInMemoryCollectionOperations:
         inmemory_client.delete_collection(collection_name)
 
         # Should raise error when trying to get info
-        from src.database import CollectionNotFoundError
+        from vdb_flow.database import CollectionNotFoundError
 
         with pytest.raises(CollectionNotFoundError):
             inmemory_client.get_collection_info(collection_name)
 
     def test_delete_collection_not_found(self, inmemory_client):
         """Test deleting a non-existent collection."""
-        from src.database import CollectionNotFoundError
+        from vdb_flow.database import CollectionNotFoundError
 
         with pytest.raises(CollectionNotFoundError):
             inmemory_client.delete_collection("non-existent")
@@ -144,7 +144,7 @@ class TestInMemoryCollectionOperations:
 
     def test_clear_collection_not_found(self, inmemory_client):
         """Test clearing a non-existent collection."""
-        from src.database import CollectionNotFoundError
+        from vdb_flow.database import CollectionNotFoundError
 
         with pytest.raises(CollectionNotFoundError):
             inmemory_client.clear_collection("non-existent")
@@ -240,7 +240,7 @@ Use in-memory adapter for testing.
         collection_service.delete_collection(collection_name)
 
         # Should raise error
-        from src.database import CollectionNotFoundError
+        from vdb_flow.database import CollectionNotFoundError
 
         with pytest.raises(CollectionNotFoundError):
             collection_service.get_collection_info(collection_name)
@@ -274,7 +274,7 @@ class TestInMemoryAdapterCompatibility:
 
     def test_same_exceptions(self, inmemory_client):
         """Test that in-memory adapter raises the same exceptions."""
-        from src.database import (
+        from vdb_flow.database import (
             CollectionNotFoundError,
             InvalidCollectionNameError,
             InvalidVectorSizeError,
@@ -309,7 +309,7 @@ class TestInMemoryAdapterCompatibility:
         )
 
         # Upload with wrong size should fail
-        from src.database import DatabaseOperationError
+        from vdb_flow.database import DatabaseOperationError
 
         with pytest.raises(DatabaseOperationError, match="Vector size mismatch"):
             inmemory_client.upload_chunk(

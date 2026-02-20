@@ -6,7 +6,7 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from src.validation import (
+from vdb_flow.validation import (
     validate_collection_name,
     validate_distance_metric,
     validate_path,

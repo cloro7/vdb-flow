@@ -43,7 +43,7 @@ dev = [
 ]
 
 [project.scripts]
-vdb-flow = "src.cli.main:main"
+vdb-flow = "vdb_flow.cli.main:main"
 
 [project.entry-points."vdb_flow.adapters"]
 # Entry points for third-party database adapters
@@ -57,15 +57,15 @@ Repository = "https://github.com/cloro7/vdb-flow"
 Issues = "https://github.com/cloro7/vdb-flow/issues"
 
 [tool.setuptools]
-package-dir = {"" = "."}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["vdb_flow*"]
 exclude = ["tests*", "*.tests*", "*.tests"]
 
 [tool.setuptools_scm]
-write_to = "src/_version.py"
+write_to = "src/vdb_flow/_version.py"
 # Use default version scheme: if on a tag, use tag version; otherwise tag version + .devN
 # This ensures versions come from git tags following semantic versioning
 version_scheme = "no-guess-dev"
