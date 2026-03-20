@@ -5,9 +5,9 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from src.database import VectorDatabase, create_vector_database
-from src.database.port import CollectionNotFoundError
-from src.services.collection import CollectionService
+from vdb_flow.database import VectorDatabase, create_vector_database
+from vdb_flow.database.port import CollectionNotFoundError
+from vdb_flow.services.collection import CollectionService
 
 
 @pytest.fixture
@@ -16,8 +16,7 @@ def test_adr_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a test ADR file
         adr_file = Path(tmpdir) / "adr-001-test.md"
-        adr_file.write_text(
-            """# ADR-001: Test Decision
+        adr_file.write_text("""# ADR-001: Test Decision
 
 ## Status
 Accepted
@@ -31,8 +30,7 @@ We will use this ADR for testing purposes.
 ## Consequences
 - Positive: Allows us to test the collection service
 - Negative: None, it's just a test
-"""
-        )
+""")
         yield tmpdir
 
 
@@ -218,7 +216,7 @@ We will use Ollama with nomic-embed-text model for local embedding generation.
 
             # Verify we can search the loaded data
             # Get a sample embedding to test search
-            from src.services.embedding import get_embedding
+            from vdb_flow.services.embedding import get_embedding
 
             test_query = "vector database search"
             query_vector = get_embedding(test_query)
@@ -283,7 +281,7 @@ def test_load_non_existent_collection(collection_service, test_adr_dir):
 
 def test_create_collection_invalid_name(collection_service):
     """Test that create_collection raises InvalidCollectionNameError for invalid collection name."""
-    from src.database.port import InvalidCollectionNameError
+    from vdb_flow.database.port import InvalidCollectionNameError
 
     with pytest.raises(
         InvalidCollectionNameError,

@@ -3,15 +3,15 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from src.cli.main import (
+from vdb_flow.cli.main import (
     create_parser,
     _format_list_table,
     _format_dict_table,
     _format_output,
     _log_summary,
 )
-from src.cli.commands import CLICommands
-from src.database.port import InvalidVectorSizeError
+from vdb_flow.cli.commands import CLICommands
+from vdb_flow.database.port import InvalidVectorSizeError
 
 
 def test_create_parser_has_all_commands():
@@ -399,9 +399,9 @@ def test_get_collection_info_logs_success(caplog):
     )
 
 
-@patch("src.services.collection.validate_path")
-@patch("src.cli.commands.os.path.exists")
-@patch("src.cli.commands.os.path.expanduser")
+@patch("vdb_flow.services.collection.validate_path")
+@patch("vdb_flow.cli.commands.os.path.exists")
+@patch("vdb_flow.cli.commands.os.path.expanduser")
 def test_load_collection_success(mock_expanduser, mock_exists, mock_validate_path):
     """Test load_collection with valid path."""
     from pathlib import Path
@@ -423,9 +423,9 @@ def test_load_collection_success(mock_expanduser, mock_exists, mock_validate_pat
     )
 
 
-@patch("src.services.collection.validate_path")
-@patch("src.cli.commands.os.path.exists")
-@patch("src.cli.commands.os.path.expanduser")
+@patch("vdb_flow.services.collection.validate_path")
+@patch("vdb_flow.cli.commands.os.path.exists")
+@patch("vdb_flow.cli.commands.os.path.expanduser")
 def test_load_collection_logs_success(
     mock_expanduser, mock_exists, mock_validate_path, caplog
 ):
@@ -449,8 +449,8 @@ def test_load_collection_logs_success(
     )
 
 
-@patch("src.cli.commands.os.path.exists")
-@patch("src.cli.commands.os.path.expanduser")
+@patch("vdb_flow.cli.commands.os.path.exists")
+@patch("vdb_flow.cli.commands.os.path.expanduser")
 def test_load_collection_path_not_found(mock_expanduser, mock_exists):
     """Test load_collection exits when path doesn't exist."""
     mock_db_client = Mock()
@@ -472,10 +472,10 @@ def test_load_collection_path_not_found(mock_expanduser, mock_exists):
     commands.collection_service.load_collection.assert_not_called()
 
 
-@patch("src.services.collection.validate_path")
-@patch("src.cli.commands.os.path.exists")
-@patch("src.cli.commands.os.path.expanduser")
-@patch("src.cli.commands.sys.exit")
+@patch("vdb_flow.services.collection.validate_path")
+@patch("vdb_flow.cli.commands.os.path.exists")
+@patch("vdb_flow.cli.commands.os.path.expanduser")
+@patch("vdb_flow.cli.commands.sys.exit")
 def test_load_collection_value_error(
     mock_exit, mock_expanduser, mock_exists, mock_validate_path
 ):
@@ -498,15 +498,15 @@ def test_load_collection_value_error(
     commands.collection_service.load_collection.assert_called_once()
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_create_command(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function routes create command correctly."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -532,15 +532,15 @@ def test_main_create_command(
     )
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_create_command_with_options(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function routes create command with all options."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -578,15 +578,15 @@ def test_main_create_command_with_options(
     )
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_delete_command(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function routes delete command."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -609,15 +609,15 @@ def test_main_delete_command(
     )
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_list_command(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function routes list command."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -638,15 +638,15 @@ def test_main_list_command(
     mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_info_command(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function routes info command."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -669,12 +669,12 @@ def test_main_info_command(
     )
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
-@patch("src.cli.commands.os.path.exists")
-@patch("src.cli.commands.os.path.expanduser")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
+@patch("vdb_flow.cli.commands.os.path.exists")
+@patch("vdb_flow.cli.commands.os.path.expanduser")
 def test_main_load_command(
     mock_expanduser,
     mock_exists,
@@ -684,7 +684,7 @@ def test_main_load_command(
     mock_get_commands,
 ):
     """Test main function routes load command."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Setup mocks
     mock_commands = Mock()
@@ -717,10 +717,10 @@ def test_main_load_command(
     mock_log_summary.assert_called_once_with(mock_result, "load", None)
 
 
-@patch("src.cli.main.sys.exit")
+@patch("vdb_flow.cli.main.sys.exit")
 def test_main_invalid_command(mock_exit):
     """Test main function handles invalid command without initializing database."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Mock sys.argv with invalid command
     with patch("sys.argv", ["vdb-flow", "invalid-command"]):
@@ -743,10 +743,10 @@ def test_version_command():
     assert args.action == "version"
 
 
-@patch("src.cli.main._show_version")
+@patch("vdb_flow.cli.main._show_version")
 def test_main_version_command(mock_show_version):
     """Test main function routes version command without initializing database."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     # Mock sys.argv
     with patch("sys.argv", ["vdb-flow", "version"]):
@@ -866,7 +866,7 @@ def test_format_dict_table_with_list():
     assert "[3 items]" in result
 
 
-@patch("src.cli.main.print")
+@patch("vdb_flow.cli.main.print")
 def test_format_output_json_list(mock_print):
     """Test _format_output with json format for list."""
     data = [{"name": "collection1"}]
@@ -877,7 +877,7 @@ def test_format_output_json_list(mock_print):
     assert "collection1" in call_args
 
 
-@patch("src.cli.main.print")
+@patch("vdb_flow.cli.main.print")
 def test_format_output_table_list(mock_print):
     """Test _format_output with table format for list command."""
     data = [{"name": "collection1", "points_count": 100}]
@@ -888,7 +888,7 @@ def test_format_output_table_list(mock_print):
     assert "collection1" in call_args
 
 
-@patch("src.cli.main.print")
+@patch("vdb_flow.cli.main.print")
 def test_format_output_table_dict(mock_print):
     """Test _format_output with table format for dict."""
     data = {"name": "test-collection", "points_count": 100}
@@ -899,7 +899,7 @@ def test_format_output_table_dict(mock_print):
     assert "name" in call_args
 
 
-@patch("src.cli.main.print")
+@patch("vdb_flow.cli.main.print")
 def test_format_output_json_dict(mock_print):
     """Test _format_output with json format for dict."""
     data = {"name": "test-collection", "points_count": 100}
@@ -909,7 +909,7 @@ def test_format_output_json_dict(mock_print):
     assert "test-collection" in call_args
 
 
-@patch("src.cli.main.logger")
+@patch("vdb_flow.cli.main.logger")
 def test_log_summary_list(mock_logger):
     """Test _log_summary logs for list command."""
     data = [{"name": "collection1"}, {"name": "collection2"}]
@@ -917,7 +917,7 @@ def test_log_summary_list(mock_logger):
     mock_logger.info.assert_called_once_with("Found 2 collection(s)")
 
 
-@patch("src.cli.main.logger")
+@patch("vdb_flow.cli.main.logger")
 def test_log_summary_create(mock_logger):
     """Test _log_summary logs for create command."""
     data = {"result": {"name": "test-collection"}}
@@ -928,7 +928,7 @@ def test_log_summary_create(mock_logger):
     assert "test-collection" in call_args
 
 
-@patch("src.cli.main.logger")
+@patch("vdb_flow.cli.main.logger")
 def test_log_summary_delete(mock_logger):
     """Test _log_summary logs for delete command."""
     data = {"status": "ok", "collection": "test-collection"}
@@ -936,7 +936,7 @@ def test_log_summary_delete(mock_logger):
     mock_logger.info.assert_called_once_with("Collection deleted: name=test-collection")
 
 
-@patch("src.cli.main.logger")
+@patch("vdb_flow.cli.main.logger")
 def test_log_summary_info(mock_logger):
     """Test _log_summary logs for info command."""
     data = {"result": {"name": "test-collection", "points_count": 100}}
@@ -948,7 +948,7 @@ def test_log_summary_info(mock_logger):
     assert "vectors=100" in call_args
 
 
-@patch("src.cli.main.logger")
+@patch("vdb_flow.cli.main.logger")
 def test_log_summary_clear(mock_logger):
     """Test _log_summary logs for clear command."""
     data = {"status": "ok", "collection": "test-collection"}
@@ -956,15 +956,15 @@ def test_log_summary_clear(mock_logger):
     mock_logger.info.assert_called_once_with("Collection cleared: name=test-collection")
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_list_command_with_output_table(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function uses table output when --output table is specified."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     mock_commands = Mock()
     mock_get_commands.return_value = mock_commands
@@ -979,15 +979,15 @@ def test_main_list_command_with_output_table(
     mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_list_command_with_output_json(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function uses json output when --output json is specified."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     mock_commands = Mock()
     mock_get_commands.return_value = mock_commands
@@ -1002,15 +1002,15 @@ def test_main_list_command_with_output_json(
     mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_list_command_default_output_json(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function defaults to json output when --output is not specified."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     mock_commands = Mock()
     mock_get_commands.return_value = mock_commands
@@ -1026,15 +1026,15 @@ def test_main_list_command_default_output_json(
     mock_log_summary.assert_called_once_with(mock_result, "list", None)
 
 
-@patch("src.cli.main._get_commands")
-@patch("src.cli.main._format_output")
-@patch("src.cli.main._log_summary")
-@patch("src.cli.main.setup_logging")
+@patch("vdb_flow.cli.main._get_commands")
+@patch("vdb_flow.cli.main._format_output")
+@patch("vdb_flow.cli.main._log_summary")
+@patch("vdb_flow.cli.main.setup_logging")
 def test_main_create_command_with_output_table(
     mock_setup_logging, mock_log_summary, mock_format_output, mock_get_commands
 ):
     """Test main function uses table output for create command."""
-    from src.cli.main import main
+    from vdb_flow.cli.main import main
 
     mock_commands = Mock()
     mock_get_commands.return_value = mock_commands

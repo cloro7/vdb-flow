@@ -12,14 +12,13 @@ repos:
       - id: debug-statements
 
   - repo: https://github.com/psf/black
-    rev: 24.1.1
+    rev: 26.3.1
     hooks:
       - id: black
         language_version: python3
-
+        exclude: ^src/vdb_flow/_version\.py$
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
       - id: flake8
         additional_dependencies: [flake8-docstrings]
-

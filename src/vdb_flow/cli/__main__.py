@@ -1,4 +1,4 @@
-"""Allow running CLI as a module: python -m src.cli."""
+"""Allow running CLI as a module: python -m vdb_flow.cli."""
 
 from .main import main
 

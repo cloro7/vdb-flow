@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from typing import List
 
-from src.services.collection import CollectionService
-from src.database.port import (
+from vdb_flow.services.collection import CollectionService
+from vdb_flow.database.port import (
     CollectionNotFoundError,
     InvalidCollectionNameError,
     InvalidVectorSizeError,
@@ -246,8 +246,7 @@ class TestCollectionServiceLoadCollection:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a test ADR file
             adr_file = Path(tmpdir) / "adr-001-test.md"
-            adr_file.write_text(
-                """# ADR-001: Test Decision
+            adr_file.write_text("""# ADR-001: Test Decision
 
 ## Status
 Accepted
@@ -261,8 +260,7 @@ We will use this ADR for testing purposes.
 ## Consequences
 - Positive: Allows us to test the collection service
 - Negative: None, it's just a test
-"""
-            )
+""")
             yield tmpdir
 
     def test_load_collection_success(
@@ -435,7 +433,7 @@ class TestCollectionServiceHelperMethods:
             config=mock_config,
         )
 
-        with patch("src.services.embedding.get_embedding") as mock_default:
+        with patch("vdb_flow.services.embedding.get_embedding") as mock_default:
             mock_default.return_value = [0.3] * 768
             result = service._get_embedding("test text")
 
@@ -457,7 +455,7 @@ class TestCollectionServiceHelperMethods:
         """Test that _get_config falls back to global config if not injected."""
         service = CollectionService(db_client=mock_db_client, config=None)
 
-        with patch("src.config.get_config") as mock_get_config:
+        with patch("vdb_flow.config.get_config") as mock_get_config:
             mock_config = Mock()
             mock_get_config.return_value = mock_config
 

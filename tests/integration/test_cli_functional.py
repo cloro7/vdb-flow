@@ -11,9 +11,8 @@ from uuid import uuid4
 import pytest
 from unittest.mock import patch
 
-from src.cli.main import main
-from src.composition import reset_container
-
+from vdb_flow.cli.main import main
+from vdb_flow.composition import reset_container
 
 DEFAULT_ENV = {
     "VECTOR_DB_TYPE": "inmemory",  # Use in-memory adapter to avoid external deps
