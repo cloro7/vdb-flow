@@ -14,7 +14,6 @@ from unittest.mock import patch
 from vdb_flow.cli.main import main
 from vdb_flow.composition import reset_container
 
-
 DEFAULT_ENV = {
     "VECTOR_DB_TYPE": "inmemory",  # Use in-memory adapter to avoid external deps
     "LOG_LEVEL": "INFO",

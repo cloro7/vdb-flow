@@ -64,9 +64,10 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_success(self, qdrant_client):
         """Test successful request."""
-        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
-        ) as mock_limiter:
+        with (
+            patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter") as mock_limiter,
+        ):
             mock_response = Mock()
             mock_response.status_code = 200
             mock_get.return_value = mock_response
@@ -79,9 +80,10 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_with_json(self, qdrant_client):
         """Test request with JSON payload."""
-        with patch(
-            "vdb_flow.database.adapters.qdrant.requests.post"
-        ) as mock_post, patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"):
+        with (
+            patch("vdb_flow.database.adapters.qdrant.requests.post") as mock_post,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"),
+        ):
             mock_response = Mock()
             mock_response.status_code = 200
             mock_post.return_value = mock_response
@@ -97,8 +99,9 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_timeout(self, qdrant_client):
         """Test request timeout handling."""
-        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
+        with (
+            patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"),
         ):
             mock_get.side_effect = Timeout("Connection timeout")
 
@@ -110,8 +113,9 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_connection_error(self, qdrant_client):
         """Test connection error handling."""
-        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
+        with (
+            patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"),
         ):
             mock_get.side_effect = ConnectionError("Connection failed")
 
@@ -123,8 +127,9 @@ class TestQdrantVectorDatabaseMakeRequest:
 
     def test_make_request_generic_error(self, qdrant_client):
         """Test generic request error handling."""
-        with patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get, patch(
-            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
+        with (
+            patch("vdb_flow.database.adapters.qdrant.requests.get") as mock_get,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"),
         ):
             mock_get.side_effect = RequestException("Request failed")
 
@@ -166,9 +171,10 @@ class TestQdrantVectorDatabaseCreateCollection:
 
     def test_create_collection_success(self, qdrant_client):
         """Test successful collection creation."""
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(qdrant_client, "_make_request") as mock_request:
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+        ):
             mock_exists.return_value = False
             mock_response = Mock()
             mock_response.status_code = 200
@@ -181,11 +187,10 @@ class TestQdrantVectorDatabaseCreateCollection:
 
     def test_create_collection_already_exists(self, qdrant_client):
         """Test creating collection that already exists."""
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(
-            qdrant_client, "get_collection_info"
-        ) as mock_get_info:
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "get_collection_info") as mock_get_info,
+        ):
             mock_exists.return_value = True
             mock_get_info.return_value = {"status": "ok", "result": {}}
 
@@ -199,9 +204,10 @@ class TestQdrantVectorDatabaseCreateCollection:
 
     def test_create_collection_hybrid(self, qdrant_client):
         """Test creating hybrid collection."""
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(qdrant_client, "_make_request") as mock_request:
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+        ):
             mock_exists.return_value = False
             mock_response = Mock()
             mock_response.status_code = 200
@@ -225,9 +231,10 @@ class TestQdrantVectorDatabaseCreateCollection:
         # QdrantVectorDatabase doesn't validate vector_size, it just passes it to Qdrant
         # The validation happens in CollectionService. So this test should expect
         # DatabaseOperationError from Qdrant, not InvalidVectorSizeError
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(qdrant_client, "_make_request") as mock_request:
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+        ):
             mock_exists.return_value = False
             mock_response = Mock()
             mock_response.status_code = 400
@@ -245,9 +252,10 @@ class TestQdrantVectorDatabaseDeleteCollection:
 
     def test_delete_collection_success(self, qdrant_client):
         """Test successful collection deletion."""
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(qdrant_client, "_make_request") as mock_request:
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+        ):
             mock_exists.return_value = True
             mock_response = Mock()
             mock_response.status_code = 200
@@ -261,12 +269,10 @@ class TestQdrantVectorDatabaseDeleteCollection:
     def test_delete_collection_not_found(self, qdrant_client):
         """Test deleting non-existent collection."""
         # Mock both _collection_exists and _make_request
-        with patch.object(
-            qdrant_client, "_collection_exists"
-        ) as mock_exists, patch.object(
-            qdrant_client, "_make_request"
-        ) as mock_request, patch(
-            "vdb_flow.database.adapters.qdrant.db_rate_limiter"
+        with (
+            patch.object(qdrant_client, "_collection_exists") as mock_exists,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+            patch("vdb_flow.database.adapters.qdrant.db_rate_limiter"),
         ):
             mock_exists.return_value = False
             # Simulate successful DELETE response (Qdrant returns 200 even for non-existent)
@@ -371,13 +377,13 @@ class TestQdrantVectorDatabaseUploadChunk:
         """Test successful chunk upload."""
         mock_embedding_func = Mock(return_value=[0.1] * 768)
 
-        with patch.object(
-            qdrant_client, "_check_point_exists"
-        ) as mock_check_exists, patch.object(
-            qdrant_client, "_ensure_hybrid_collection_cached"
-        ) as mock_hybrid, patch.object(
-            qdrant_client, "_make_request"
-        ) as mock_request:
+        with (
+            patch.object(qdrant_client, "_check_point_exists") as mock_check_exists,
+            patch.object(
+                qdrant_client, "_ensure_hybrid_collection_cached"
+            ) as mock_hybrid,
+            patch.object(qdrant_client, "_make_request") as mock_request,
+        ):
             # Point doesn't exist
             mock_check_exists.return_value = (False, False)
             mock_hybrid.return_value = False
@@ -444,15 +450,18 @@ class TestQdrantVectorDatabaseUploadChunksBatch:
 
         # With 2 chunks, it will use parallel processing (max_workers > 1 and len(chunks) > 1)
         # So we need to mock _prepare_points_parallel instead
-        with patch.object(
-            qdrant_client, "_ensure_hybrid_collection_cached"
-        ) as mock_hybrid, patch.object(
-            qdrant_client, "_prepare_points_parallel"
-        ) as mock_prepare_parallel, patch.object(
-            qdrant_client, "_prepare_points_sequential"
-        ) as mock_prepare_sequential, patch.object(
-            qdrant_client, "_upload_batch_points"
-        ) as mock_upload:
+        with (
+            patch.object(
+                qdrant_client, "_ensure_hybrid_collection_cached"
+            ) as mock_hybrid,
+            patch.object(
+                qdrant_client, "_prepare_points_parallel"
+            ) as mock_prepare_parallel,
+            patch.object(
+                qdrant_client, "_prepare_points_sequential"
+            ) as mock_prepare_sequential,
+            patch.object(qdrant_client, "_upload_batch_points") as mock_upload,
+        ):
             mock_hybrid.return_value = False
 
             # Mock the parallel prepare to call the embedding function
@@ -491,14 +500,17 @@ class TestQdrantVectorDatabaseUploadChunksBatch:
         progress_callback = Mock()
 
         # With 2 chunks, it will use parallel processing
-        with patch.object(
-            qdrant_client, "_ensure_hybrid_collection_cached"
-        ) as mock_hybrid, patch.object(
-            qdrant_client, "_prepare_points_parallel"
-        ) as mock_prepare_parallel, patch.object(
-            qdrant_client, "_prepare_points_sequential"
-        ) as mock_prepare_sequential, patch.object(
-            qdrant_client, "_upload_batch_points"
+        with (
+            patch.object(
+                qdrant_client, "_ensure_hybrid_collection_cached"
+            ) as mock_hybrid,
+            patch.object(
+                qdrant_client, "_prepare_points_parallel"
+            ) as mock_prepare_parallel,
+            patch.object(
+                qdrant_client, "_prepare_points_sequential"
+            ) as mock_prepare_sequential,
+            patch.object(qdrant_client, "_upload_batch_points"),
         ):
             mock_hybrid.return_value = False
 

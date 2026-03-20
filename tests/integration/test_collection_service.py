@@ -16,8 +16,7 @@ def test_adr_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a test ADR file
         adr_file = Path(tmpdir) / "adr-001-test.md"
-        adr_file.write_text(
-            """# ADR-001: Test Decision
+        adr_file.write_text("""# ADR-001: Test Decision
 
 ## Status
 Accepted
@@ -31,8 +30,7 @@ We will use this ADR for testing purposes.
 ## Consequences
 - Positive: Allows us to test the collection service
 - Negative: None, it's just a test
-"""
-        )
+""")
         yield tmpdir
 
 

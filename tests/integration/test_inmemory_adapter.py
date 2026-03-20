@@ -169,8 +169,7 @@ class TestInMemoryCollectionService:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test ADR file
             adr_file = Path(tmpdir) / "adr-001.md"
-            adr_file.write_text(
-                """# ADR-001: Test Decision
+            adr_file.write_text("""# ADR-001: Test Decision
 
 ## Status
 Accepted
@@ -184,8 +183,7 @@ We will test the in-memory adapter.
 ## Consequences
 - Positive: No external dependencies
 - Negative: Data is not persisted
-"""
-            )
+""")
 
             # Load collection
             collection_service.load_collection(collection_name, tmpdir)
@@ -202,8 +200,7 @@ We will test the in-memory adapter.
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test ADR file
             adr_file = Path(tmpdir) / "adr-001.md"
-            adr_file.write_text(
-                """# ADR-001: Use In-Memory Database
+            adr_file.write_text("""# ADR-001: Use In-Memory Database
 
 ## Status
 Accepted
@@ -217,8 +214,7 @@ Use in-memory adapter for testing.
 ## Consequences
 - Positive: Fast, no setup required
 - Negative: Not persistent
-"""
-            )
+""")
 
             # Load collection
             collection_service.load_collection(collection_name, tmpdir)
