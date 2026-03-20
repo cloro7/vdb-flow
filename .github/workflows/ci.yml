@@ -62,15 +62,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run black
+      - name: Run black (same as pre-commit hook)
         run: |
           source venv/bin/activate
-          black --check src/
+          pre-commit run black --all-files
 
-      - name: Run flake8
+      - name: Run flake8 (same as pre-commit hook)
         run: |
           source venv/bin/activate
-          flake8 src/
+          pre-commit run flake8 --all-files
 
   security-scan:
     name: Security Scan

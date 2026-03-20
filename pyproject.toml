@@ -34,8 +34,9 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-timeout>=2.0.0",
-    "black>=22.0.0",
-    "flake8>=5.0.0",
+    "black==24.1.1",  # keep in sync with .pre-commit-config.yaml (psf/black rev)
+    "flake8==7.0.0",  # keep in sync with .pre-commit-config.yaml (pycqa/flake8 rev)
+    "flake8-docstrings>=1.7.0",  # matches pre-commit flake8 hook additional_dependencies
     "pre-commit>=3.0.0",
     "bandit>=1.7.10",
     "pip-audit>=2.7.0",
@@ -97,4 +98,5 @@ extend-exclude = '''
   | build
   | dist
 )/
+| /_version\.py$
 '''

@@ -28,4 +28,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Network request timeouts and error handling
 - SHA256 hashing for deterministic UUIDs with collision handling
 - Input validation for distance metrics
-
