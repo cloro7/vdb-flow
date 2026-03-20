@@ -16,7 +16,7 @@ repos:
     hooks:
       - id: black
         language_version: python3
-
+        exclude: ^src/vdb_flow/_version\.py$
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
