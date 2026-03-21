@@ -12,12 +12,14 @@ database:
   type: "qdrant"
   url: "http://localhost:6333"  # Qdrant server URL (only used when type is "qdrant")
 
-# Ollama embedding service configuration
-ollama:
-  url: "http://localhost:11434/api/embeddings"  # Ollama API endpoint
-  model: "nomic-embed-text:latest"  # Embedding model to use
-  timeout: 60  # Request timeout in seconds
-  vector_size: 768  # Size of embedding vectors (default: 768 for nomic-embed-text, adjust for other models)
+# Embeddings (hexagonal port — see vdb_flow.embeddings)
+# type: http_ollama_compat = POST {model, prompt} -> {embedding} (e.g. Ollama, compatible servers)
+embeddings:
+  type: "http_ollama_compat"
+  url: "http://localhost:11434/api/embeddings"
+  model: "nomic-embed-text:latest"
+  timeout: 60
+  vector_size: 768
 
 # Text processing configuration
 text_processing:

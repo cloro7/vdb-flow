@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Semantic versioning workflow**: `pyproject.toml` Commitizen `version_provider = "scm"` (tags only, aligned with setuptools-scm) and GitHub Actions workflow **Release** (`release.yml`) to run `cz bump` via `workflow_dispatch` (auto or explicit patch/minor/major).
+- `Dockerfile` and CI workflow: **Docker integration tests** run `pytest tests/integration` inside the built image (host networking to Qdrant/Ollama); **GHCR** push runs only after lint, security, unit, venv integration, and Docker tests succeed, on **main** and version tags (`v*`).
+
+### Removed
+- Built-in `http_openai_compat` embedding adapter and embedding `api_key` / `EMBEDDING_API_KEY` / `OPENAI_API_KEY` wiring (only used by that adapter). Use `http_ollama_compat` or register a custom adapter via `vdb_flow.embedding_adapters` entry points.
+
+### Added
 - Initial release of VDB Manager
 - CLI commands for collection management (create, delete, clear, list, info)
 - ADR loading with automatic chunking and embedding

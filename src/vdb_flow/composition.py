@@ -6,12 +6,12 @@ receive their dependencies rather than accessing global config directly.
 """
 
 import logging
-from typing import Optional
+from typing import Callable, List, Optional
 
 from .config import Config, get_config
 from .database import create_vector_database, VectorDatabase
+from .embeddings import EmbeddingProvider, create_embedding_provider
 from .services.collection import CollectionService
-from .services.embedding import get_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ class ApplicationContainer:
         """
         self._config = config or get_config()
         self._db_client: Optional[VectorDatabase] = None
+        self._embedding_provider: Optional[EmbeddingProvider] = None
         self._collection_service: Optional[CollectionService] = None
 
     @property
@@ -55,6 +56,13 @@ class ApplicationContainer:
         return self._db_client
 
     @property
+    def embedding_provider(self) -> EmbeddingProvider:
+        """Embedding port (adapter chosen via config embeddings.type)."""
+        if self._embedding_provider is None:
+            self._embedding_provider = create_embedding_provider(self._config)
+        return self._embedding_provider
+
+    @property
     def collection_service(self) -> CollectionService:
         """
         Get or create the collection service.
@@ -70,14 +78,14 @@ class ApplicationContainer:
             )
         return self._collection_service
 
-    def get_embedding_func(self):
+    def get_embedding_func(self) -> Callable[[str], List[float]]:
         """
-        Get the embedding function.
+        Callable that delegates to the configured EmbeddingProvider.embed.
 
         Returns:
             Callable that takes text and returns embedding vector
         """
-        return get_embedding
+        return self.embedding_provider.embed
 
 
 # Global container instance (lazy-initialized)

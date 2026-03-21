@@ -22,11 +22,13 @@ DEFAULT_CONFIG = {
         "type": "qdrant",  # Options: "qdrant", "inmemory" (for testing/dev), "pinecone", "weaviate", etc.
         "url": "http://localhost:6333",
     },
-    "ollama": {
+    "embeddings": {
+        # Adapter registry name (see vdb_flow.embeddings), e.g. http_ollama_compat
+        "type": "http_ollama_compat",
         "url": "http://localhost:11434/api/embeddings",
         "model": "nomic-embed-text:latest",
         "timeout": 60,
-        "vector_size": DEFAULT_VECTOR_SIZE,  # Default vector size for embeddings
+        "vector_size": DEFAULT_VECTOR_SIZE,
     },
     "text_processing": {
         "chunk_size": DEFAULT_CHUNK_SIZE,
@@ -143,13 +145,15 @@ class Config:
         if db_url := os.getenv("QDRANT_URL") or os.getenv("DATABASE_URL"):
             self._config["database"]["url"] = db_url
 
-        # Ollama settings
-        if ollama_url := os.getenv("OLLAMA_URL"):
-            self._config["ollama"]["url"] = ollama_url
-        if ollama_model := os.getenv("OLLAMA_MODEL"):
-            self._config["ollama"]["model"] = ollama_model
-        self._set_int_env("OLLAMA_TIMEOUT", "ollama", "timeout")
-        self._set_int_env("VECTOR_SIZE", "ollama", "vector_size")
+        # Embeddings (hexagonal adapters — see embeddings.type)
+        if t := os.getenv("EMBEDDING_ADAPTER_TYPE") or os.getenv("EMBEDDINGS_TYPE"):
+            self._config["embeddings"]["type"] = t.strip().lower()
+        if url := os.getenv("EMBEDDING_URL"):
+            self._config["embeddings"]["url"] = url
+        if model := os.getenv("EMBEDDING_MODEL"):
+            self._config["embeddings"]["model"] = model
+        self._set_int_env("EMBEDDING_TIMEOUT", "embeddings", "timeout")
+        self._set_int_env("VECTOR_SIZE", "embeddings", "vector_size")
 
         # Text processing settings
         self._set_int_env("CHUNK_SIZE", "text_processing", "chunk_size")
@@ -203,24 +207,29 @@ class Config:
         return "http://localhost:6333"
 
     @property
-    def ollama_url(self) -> str:
-        """Get Ollama URL."""
-        return self._config["ollama"]["url"]
+    def embedding_adapter_type(self) -> str:
+        """Embedding adapter name (e.g. http_ollama_compat)."""
+        return str(self._config["embeddings"].get("type", "http_ollama_compat"))
 
     @property
-    def ollama_model(self) -> str:
-        """Get Ollama model name."""
-        return self._config["ollama"]["model"]
+    def embedding_url(self) -> str:
+        """HTTP URL for the embedding API (POST)."""
+        return self._config["embeddings"]["url"]
 
     @property
-    def ollama_timeout(self) -> int:
-        """Get Ollama request timeout."""
-        return self._config["ollama"]["timeout"]
+    def embedding_model(self) -> str:
+        """Model identifier for the embedding request (adapter-specific)."""
+        return self._config["embeddings"]["model"]
+
+    @property
+    def embedding_timeout(self) -> int:
+        """HTTP timeout (seconds) for embedding requests."""
+        return int(self._config["embeddings"]["timeout"])
 
     @property
     def vector_size(self) -> int:
         """Get vector size for embeddings."""
-        return self._config["ollama"].get("vector_size", DEFAULT_VECTOR_SIZE)
+        return self._config["embeddings"].get("vector_size", DEFAULT_VECTOR_SIZE)
 
     @property
     def chunk_size(self) -> int:

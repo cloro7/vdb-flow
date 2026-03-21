@@ -36,7 +36,7 @@ class CollectionService:
     def __init__(
         self,
         db_client: VectorDatabase,
-        embedding_func: Optional[Callable[[str], List[float]]] = None,
+        embedding_func: Callable[[str], List[float]],
         config: Optional["Config"] = None,
     ):
         """
@@ -44,7 +44,8 @@ class CollectionService:
 
         Args:
             db_client: Vector database client implementing VectorDatabase port
-            embedding_func: Function to generate embeddings. If None, will use default.
+            embedding_func: Text-to-vector embedding (typically ``EmbeddingProvider.embed``,
+                wired at the composition root).
             config: Optional Config instance. If None, will use default (for backward compatibility).
         """
         self.db_client = db_client
@@ -64,23 +65,6 @@ class CollectionService:
         from ..config import get_config
 
         return get_config()
-
-    def _get_embedding(self, text: str) -> List[float]:
-        """
-        Get embedding using the configured embedding function.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            Embedding vector
-        """
-        if self._embedding_func is None:
-            # Fallback to default if not provided
-            from .embedding import get_embedding
-
-            return get_embedding(text)
-        return self._embedding_func(text)
 
     @staticmethod
     def _read_file_with_fallback(file_path: str, rel_path: str) -> str:
@@ -332,7 +316,7 @@ class CollectionService:
             self.db_client.upload_chunks_batch(
                 collection_name,
                 batch,
-                self._get_embedding,
+                self._embedding_func,
                 progress_callback=progress_callback,
             )
             processed = len(batch)
@@ -348,7 +332,7 @@ class CollectionService:
                         chunk_content,
                         file_name,
                         chunk_id,
-                        self._get_embedding,
+                        self._embedding_func,
                     )
                     processed += 1
                     pbar.update(1)
