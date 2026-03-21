@@ -93,6 +93,8 @@ source = ["vdb_flow"]
 omit = ["*/_version.py"]
 
 [tool.coverage.report]
+# CI runs `pytest tests/unit tests/integration --cov=vdb_flow` in one shot; same floor locally.
+fail_under = 80
 show_missing = true
 
 [tool.black]

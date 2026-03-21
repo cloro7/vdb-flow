@@ -70,7 +70,7 @@ pip install .
 
 ### Docker (GitHub Container Registry)
 
-Images are built in CI, integration-tested **inside the container** against the same Compose stack as the venv job, then pushed to **GHCR** only after lint, security, unit, integration, and Docker tests pass—on pushes to **main** and on `v*` tags (not on `develop` or PRs).
+Images are built in CI, integration-tested **inside the container** against the same Compose stack as the venv job, then pushed to **GHCR** only after lint, security, the combined unit/integration test job (with coverage floor), and Docker tests pass—on pushes to **main** and on `v*` tags (not on `develop` or PRs).
 
 ```bash
 docker pull ghcr.io/cloro7/vdb-flow:latest
