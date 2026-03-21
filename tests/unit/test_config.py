@@ -28,7 +28,9 @@ def tmp_yaml(tmp_path):
 
 
 class TestConfigFromFile:
-    def test_load_yaml_merges_database_url(self, tmp_yaml):
+    def test_load_yaml_merges_database_url(self, tmp_yaml, monkeypatch):
+        monkeypatch.delenv("QDRANT_URL", raising=False)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         path = tmp_yaml(
             "cfg.yaml",
             """
@@ -44,7 +46,9 @@ embeddings:
         assert c.qdrant_url == "http://qdrant:6333"
         assert c.embedding_model == "custom-model"
 
-    def test_migrate_qdrant_url_to_database(self, tmp_yaml, caplog):
+    def test_migrate_qdrant_url_to_database(self, tmp_yaml, caplog, monkeypatch):
+        monkeypatch.delenv("QDRANT_URL", raising=False)
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         path = tmp_yaml(
             "cfg.yaml",
             """
