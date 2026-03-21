@@ -1,0 +1,67 @@
+# Semantic versioning: creates an annotated Git tag (vMAJOR.MINOR.PATCH) from Conventional Commits.
+# setuptools-scm and CI read the tag; the update-changelog job on tag push can move [Unreleased] in CHANGELOG.md.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "auto = infer from commits since last tag (feat/fix/BREAKING); otherwise force bump level"
+        type: choice
+        required: true
+        default: auto
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    name: Version bump and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Commitizen
+        run: |
+          python -m pip install --upgrade pip
+          pip install "commitizen>=4.0.0"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Auto: infer bump from commits since last tag. On push to main, ignore exit 21 when no commit
+      # warrants a release (e.g. chore-only merges), so the workflow stays green.
+      - name: Bump and tag (auto from conventional commits)
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.bump == 'auto')
+        run: cz -nr NO_INCREMENT bump --yes
+
+      - name: Bump and tag (explicit)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.bump != 'auto'
+        env:
+          LEVEL: ${{ github.event.inputs.bump }}
+        run: cz bump --yes --increment "$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')"
+
+      - name: Push default branch and tags
+        env:
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: git push origin "HEAD:refs/heads/${BRANCH}" --follow-tags
