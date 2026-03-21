@@ -138,6 +138,7 @@ jobs:
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
+    needs: [unit-test]
     steps:
       - uses: actions/checkout@v4
 
@@ -228,10 +229,181 @@ jobs:
         if: always()
         run: docker compose down -v
 
+  # Runs in parallel with integration-test (venv); builds image and runs the same integration suite inside it.
+  docker-integration-test:
+    name: Docker integration tests
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Ollama models
+        uses: actions/cache@v4
+        with:
+          path: ./ollama_storage
+          key: ollama-models-${{ runner.os }}-nomic-embed-text
+          restore-keys: |
+            ollama-models-${{ runner.os }}-
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for Qdrant to be ready
+        run: |
+          timeout=60
+          elapsed=0
+          while ! curl -s http://localhost:6333/health > /dev/null; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Qdrant failed to start within $timeout seconds"
+              exit 1
+            fi
+            echo "Waiting for Qdrant..."
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Qdrant is ready"
+
+      - name: Wait for Ollama to be ready
+        run: |
+          timeout=60
+          elapsed=0
+          while ! curl -s http://localhost:11434/api/tags > /dev/null; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Ollama failed to start within $timeout seconds"
+              exit 1
+            fi
+            echo "Waiting for Ollama..."
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Ollama is ready"
+
+      - name: Pull Ollama model
+        run: |
+          if ! docker exec ollama ollama list | grep -q "nomic-embed-text"; then
+            echo "Pulling nomic-embed-text model..."
+            docker exec ollama ollama pull nomic-embed-text:latest
+            echo "Model pulled successfully"
+          else
+            echo "Model nomic-embed-text already exists, skipping pull"
+          fi
+
+      - name: Save Ollama models cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: ./ollama_storage
+          key: ollama-models-${{ runner.os }}-nomic-embed-text
+          restore-keys: |
+            ollama-models-${{ runner.os }}-
+
+      - name: Version for Docker build (setuptools-scm)
+        id: docker_version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/}"
+            echo "value=${V#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0.dev${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Docker image (load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: vdb-flow:ci
+          build-args: |
+            VERSION=${{ steps.docker_version.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run integration tests inside container
+        env:
+          QDRANT_URL: http://127.0.0.1:6333
+          EMBEDDING_URL: http://127.0.0.1:11434/api/embeddings
+        run: |
+          docker run --rm --network host \
+            --entrypoint "" \
+            -e QDRANT_URL="${QDRANT_URL}" \
+            -e EMBEDDING_URL="${EMBEDDING_URL}" \
+            -e EMBEDDING_ADAPTER_TYPE=http_ollama_compat \
+            -e EMBEDDING_MODEL=nomic-embed-text:latest \
+            -v "${GITHUB_WORKSPACE}/tests:/tests:ro" \
+            vdb-flow:ci \
+            sh -c "python -m pip install --user -q pytest pytest-timeout && python -m pytest /tests/integration -v --timeout=300"
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
+
+  docker-push:
+    name: Push Docker image to GHCR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [lint, security-scan, unit-test, integration-test, docker-integration-test]
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version for setuptools-scm (Docker build-arg)
+        id: build_version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/}"
+            echo "value=${V#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0.dev${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.build_version.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build:
     name: Build Package
     runs-on: ubuntu-latest
-    needs: [unit-test, integration-test]
+    needs: [lint, security-scan, unit-test, integration-test, docker-integration-test]
     steps:
       - uses: actions/checkout@v4
         with:

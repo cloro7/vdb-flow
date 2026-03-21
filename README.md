@@ -68,6 +68,17 @@ Or install directly from the source directory:
 pip install .
 ```
 
+### Docker (GitHub Container Registry)
+
+Images are built in CI, integration-tested **inside the container** against the same Compose stack as the venv job, then pushed to **GHCR** only after lint, security, unit, integration, and Docker tests pass—on pushes to **main** and on `v*` tags (not on `develop` or PRs).
+
+```bash
+docker pull ghcr.io/cloro7/vdb-flow:latest
+docker run --rm ghcr.io/cloro7/vdb-flow:latest --help
+```
+
+Replace `cloro7` with your GitHub org or user if you fork. Configure Qdrant and the embedding HTTP API via env (for example `QDRANT_URL`, `EMBEDDING_URL`) or mount a config file.
+
 ### Development Setup
 
 For development, install with dev dependencies and set up pre-commit hooks:

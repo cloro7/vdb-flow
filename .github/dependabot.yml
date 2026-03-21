@@ -19,3 +19,14 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `Dockerfile` and CI workflow: **Docker integration tests** run `pytest tests/integration` inside the built image (host networking to Qdrant/Ollama); **GHCR** push runs only after lint, security, unit, venv integration, and Docker tests succeed, on **main** and version tags (`v*`).
+
 ### Removed
 - Built-in `http_openai_compat` embedding adapter and embedding `api_key` / `EMBEDDING_API_KEY` / `OPENAI_API_KEY` wiring (only used by that adapter). Use `http_ollama_compat` or register a custom adapter via `vdb_flow.embedding_adapters` entry points.
 
