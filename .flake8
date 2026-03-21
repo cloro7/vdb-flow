@@ -31,8 +31,10 @@ exclude =
 extend-ignore = E203, E266, E501, W503
 
 # Per-file ignores
+# Tests: names are usually self-explanatory; skip pydocstyle (flake8-docstrings) noise.
 per-file-ignores =
     __init__.py:F401
+    tests/**:D100,D101,D102,D103,D104,D105,D106,D107
 
 # Maximum complexity (optional, can be adjusted)
 max-complexity = 10
