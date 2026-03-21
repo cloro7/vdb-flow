@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Semantic versioning workflow**: `pyproject.toml` Commitizen `version_provider = "scm"` (tags only, aligned with setuptools-scm) and GitHub Actions workflow **Release** (`release.yml`) to run `cz bump` via `workflow_dispatch` (auto or explicit patch/minor/major).
+- **Semantic versioning workflow**: `pyproject.toml` Commitizen `version_provider = "scm"` (tags only, aligned with setuptools-scm) and GitHub Actions workflow **Release** (`release.yml`): `cz bump --get-next` plus `git tag` on `HEAD` (plain `cz bump` would fail with nothing to commit), on push to **main** and via `workflow_dispatch` (auto or explicit patch/minor/major).
 - `Dockerfile` and CI workflow: **Docker integration tests** run `pytest tests/integration` inside the built image (host networking to Qdrant/Ollama); **GHCR** push runs only after lint, security, unit, venv integration, and Docker tests succeed, on **main** and version tags (`v*`).
 
 ### Removed
