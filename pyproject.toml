@@ -38,7 +38,7 @@ dev = [
     "pre-commit>=3.0.0",
     "bandit>=1.7.10",
     "pip-audit>=2.7.0",
-    "commitizen>=3.18.0",
+    "commitizen>=4.0.0",
 ]
 
 [project.scripts]
@@ -77,12 +77,14 @@ local_scheme = "no-local-version"
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt"]
 
+# Semantic versioning: tags like v1.2.3 (see README "Releases"). Version is read from Git only
+# (setuptools-scm + Commitizen scm provider — no version committed to pyproject).
 [tool.commitizen]
 name = "cz_conventional_commits"
+version_provider = "scm"
 tag_format = "v$version"
-version = "0.0.0"
-version_files = []
 update_changelog_on_bump = false
+version_files = []
 
 [tool.black]
 line-length = 88

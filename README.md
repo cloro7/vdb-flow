@@ -119,19 +119,37 @@ These checks ensure dependency vulnerabilities and common Python security issues
 
 ### Conventional Commits & Releases
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/) so semantic version bumps stay predictable. Use [Commitizen](https://commitizen-tools.github.io/commitizen/) to craft messages:
+We follow [Conventional Commits](https://www.conventionalcommits.org/) and [Semantic Versioning](https://semver.org/). The **package version** comes from **Git tags** only (`vMAJOR.MINOR.PATCH`), via [setuptools-scm](https://github.com/pypa/setuptools_scm) — there is no static `version` in `pyproject.toml`.
+
+**Commit messages** — use [Commitizen](https://commitizen-tools.github.io/commitizen/) so types map cleanly to SemVer bumps:
 
 ```bash
 cz commit  # interactive prompt that builds a compliant message
 ```
 
-To check existing commits before pushing:
+Check a commit range before pushing:
 
 ```bash
 cz check --rev-range origin/main..HEAD
 ```
 
-Our CI also runs `cz check` on pull requests; merge requests with non-compliant messages will fail. This policy lets us map features/fixes/breaking changes to `MAJOR.MINOR.PATCH` releases automatically.
+CI runs `cz check` on pull requests; non-compliant messages fail the check.
+
+**Creating a release (SemVer tag)** — maintainers can either:
+
+1. **GitHub Actions** — run workflow **Release** (`release.yml`) → *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow runs `cz bump` with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) (tag only; matches setuptools-scm) and pushes the new tag.
+
+2. **Locally** — with a clean default branch and dev deps installed:
+
+```bash
+pip install -e ".[dev]"
+cz bump   # interactive; or: cz bump --yes  (auto) / cz bump --yes --increment PATCH
+git push origin main --follow-tags
+```
+
+**Branch protection:** the Release workflow must be allowed to push tags (and any bump commit) to the default branch. If pushes are blocked, use a temporary bypass for GitHub Actions or run the local flow with a maintainer PAT.
+
+After a tag exists, CI builds wheels/images and the **Update Changelog** job (on tag push) can reconcile `CHANGELOG.md` from `[Unreleased]` using `scripts/update_changelog.py`.
 
 ## Usage
 
