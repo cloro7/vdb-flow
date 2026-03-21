@@ -57,7 +57,8 @@ jobs:
           set -euo pipefail
           VERSION="$(cz -nr NO_INCREMENT bump --yes --get-next | tr -d '\r\n')"
           TAG="v${VERSION}"
-          git tag "$TAG" HEAD
+          # Annotated tags are required: git push --follow-tags does not send lightweight tags.
+          git tag -a "$TAG" -m "Release $TAG" HEAD
 
       - name: Bump and tag (explicit)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.bump != 'auto'
@@ -68,7 +69,7 @@ jobs:
           INC="$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')"
           VERSION="$(cz bump --yes --increment "$INC" --get-next | tr -d '\r\n')"
           TAG="v${VERSION}"
-          git tag "$TAG" HEAD
+          git tag -a "$TAG" -m "Release $TAG" HEAD
 
       - name: Push default branch and tags
         env:

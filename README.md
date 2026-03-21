@@ -139,7 +139,7 @@ CI runs `cz check` on pull requests; non-compliant messages fail the check.
 
 You can also:
 
-1. **GitHub Actions (manual)** — *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow uses [`cz bump --get-next`](https://commitizen-tools.github.io/commitizen/commands/bump/#--get-next) with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) and pushes a **lightweight** tag — no bump commit, since the version is not stored in files.
+1. **GitHub Actions (manual)** — *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow uses [`cz bump --get-next`](https://commitizen-tools.github.io/commitizen/commands/bump/#--get-next) with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) and pushes an **annotated** tag (`git push --follow-tags` only transmits annotated tags). No bump commit, since the version is not stored in files.
 
 2. **Locally** — with a clean default branch and dev deps installed:
 
@@ -147,7 +147,7 @@ You can also:
 pip install -e ".[dev]"
 # Tag-only (matches CI): plain `cz bump` can fail with scm + no version files — nothing to commit.
 VERSION="$(cz bump --yes --get-next)"   # or: cz -nr NO_INCREMENT bump --yes --get-next
-git tag "v${VERSION}" HEAD
+git tag -a "v${VERSION}" -m "Release v${VERSION}" HEAD
 git push origin main --follow-tags
 ```
 
