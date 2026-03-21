@@ -31,6 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "pytest-timeout>=2.0.0",
     "black==26.3.1",  # keep in sync with .pre-commit-config.yaml (psf/black rev); >=26.3.1 for CVE-2026-32274
     "flake8==7.3.0",  # keep in sync with .pre-commit-config.yaml (pycqa/flake8 rev)
@@ -85,6 +86,14 @@ version_provider = "scm"
 tag_format = "v$version"
 update_changelog_on_bump = false
 version_files = []
+
+[tool.coverage.run]
+branch = true
+source = ["vdb_flow"]
+omit = ["*/_version.py"]
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.black]
 line-length = 88
