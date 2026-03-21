@@ -135,21 +135,23 @@ cz check --rev-range origin/main..HEAD
 
 CI runs `cz check` on pull requests; non-compliant messages fail the check.
 
-**Creating a release (SemVer tag)** — by default, **merges to `main`** trigger the **Release** workflow automatically: it runs the same **auto** `cz bump` as below and pushes a new tag when commits since the last tag warrant a release. If nothing is eligible (for example only `chore`/`docs` with no bump rule), the run succeeds without a new tag (Commitizen [`--no-raise NO_INCREMENT`](https://commitizen-tools.github.io/commitizen/exit_codes/)).
+**Creating a release (SemVer tag)** — by default, **merges to `main`** trigger the **Release** workflow automatically: it resolves the next version with **`cz bump --get-next`** and creates a tag on `HEAD` when commits since the last tag warrant a release. If nothing is eligible (for example only `chore`/`docs` with no bump rule), the run succeeds without a new tag (Commitizen [`--no-raise NO_INCREMENT`](https://commitizen-tools.github.io/commitizen/exit_codes/)).
 
 You can also:
 
-1. **GitHub Actions (manual)** — *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow runs `cz bump` with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) (tag only; matches setuptools-scm) and pushes the new tag.
+1. **GitHub Actions (manual)** — *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow uses [`cz bump --get-next`](https://commitizen-tools.github.io/commitizen/commands/bump/#--get-next) with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) and pushes a **lightweight** tag — no bump commit, since the version is not stored in files.
 
 2. **Locally** — with a clean default branch and dev deps installed:
 
 ```bash
 pip install -e ".[dev]"
-cz bump   # interactive; or: cz bump --yes  (auto) / cz bump --yes --increment PATCH
+# Tag-only (matches CI): plain `cz bump` can fail with scm + no version files — nothing to commit.
+VERSION="$(cz bump --yes --get-next)"   # or: cz -nr NO_INCREMENT bump --yes --get-next
+git tag "v${VERSION}" HEAD
 git push origin main --follow-tags
 ```
 
-**Branch protection:** the Release workflow must be allowed to push tags (and any bump commit) to the default branch. If pushes are blocked, use a temporary bypass for GitHub Actions or run the local flow with a maintainer PAT.
+**Branch protection:** the Release workflow must be allowed to push tags to the default branch. If pushes are blocked, use a temporary bypass for GitHub Actions or run the local flow with a maintainer PAT.
 
 After a tag exists, CI builds wheels/images and the **Update Changelog** job (on tag push) can reconcile `CHANGELOG.md` from `[Unreleased]` using `scripts/update_changelog.py`.
 

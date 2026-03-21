@@ -1,4 +1,4 @@
-# Semantic versioning: creates an annotated Git tag (vMAJOR.MINOR.PATCH) from Conventional Commits.
+# Semantic versioning: creates a Git tag (vMAJOR.MINOR.PATCH) on HEAD from Conventional Commits.
 # setuptools-scm and CI read the tag; the update-changelog job on tag push can move [Unreleased] in CHANGELOG.md.
 name: Release
 
@@ -49,17 +49,26 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # Auto: infer bump from commits since last tag. On push to main, ignore exit 21 when no commit
-      # warrants a release (e.g. chore-only merges), so the workflow stays green.
+      # With version_provider = scm and no version_files / changelog bump, plain `cz bump` still runs
+      # `git commit -a` and fails (nothing to commit). Use `--get-next` (exits before commit) then tag HEAD.
       - name: Bump and tag (auto from conventional commits)
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.bump == 'auto')
-        run: cz -nr NO_INCREMENT bump --yes
+        run: |
+          set -euo pipefail
+          VERSION="$(cz -nr NO_INCREMENT bump --yes --get-next | tr -d '\r\n')"
+          TAG="v${VERSION}"
+          git tag "$TAG" HEAD
 
       - name: Bump and tag (explicit)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.bump != 'auto'
         env:
           LEVEL: ${{ github.event.inputs.bump }}
-        run: cz bump --yes --increment "$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')"
+        run: |
+          set -euo pipefail
+          INC="$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')"
+          VERSION="$(cz bump --yes --increment "$INC" --get-next | tr -d '\r\n')"
+          TAG="v${VERSION}"
+          git tag "$TAG" HEAD
 
       - name: Push default branch and tags
         env:
