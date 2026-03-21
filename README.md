@@ -135,9 +135,11 @@ cz check --rev-range origin/main..HEAD
 
 CI runs `cz check` on pull requests; non-compliant messages fail the check.
 
-**Creating a release (SemVer tag)** — maintainers can either:
+**Creating a release (SemVer tag)** — by default, **merges to `main`** trigger the **Release** workflow automatically: it runs the same **auto** `cz bump` as below and pushes a new tag when commits since the last tag warrant a release. If nothing is eligible (for example only `chore`/`docs` with no bump rule), the run succeeds without a new tag (Commitizen [`--no-raise NO_INCREMENT`](https://commitizen-tools.github.io/commitizen/exit_codes/)).
 
-1. **GitHub Actions** — run workflow **Release** (`release.yml`) → *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow runs `cz bump` with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) (tag only; matches setuptools-scm) and pushes the new tag.
+You can also:
+
+1. **GitHub Actions (manual)** — *Actions* → *Release* → *Run workflow*. Choose **auto** to infer the next version from commits on the default branch since the last tag (`fix` → patch, `feat` → minor, `BREAKING CHANGE` / `!` → major), or choose **patch** / **minor** / **major** to force that bump. The workflow runs `cz bump` with the [`scm` version provider](https://commitizen-tools.github.io/commitizen/config/version_provider/) (tag only; matches setuptools-scm) and pushes the new tag.
 
 2. **Locally** — with a clean default branch and dev deps installed:
 
