@@ -7,7 +7,7 @@
 
 A command-line tool for managing Architecture Decision Records (ADRs) in vector databases. This tool enables you to create collections, load ADR markdown files, chunk and embed them, and manage your vector database collections with support for hybrid search (semantic + keyword-based search).
 
-The project uses a hexagonal architecture pattern that allows for easy extension to support different vector database backends. Currently, Qdrant is implemented, but the architecture makes it straightforward to add support for other vector databases.
+The project uses a hexagonal architecture pattern that allows for easy extension to support different vector database backends and **embedding HTTP backends**. Qdrant is implemented for storage; embeddings use the `EmbeddingProvider` port with pluggable adapters (e.g. Ollama-compatible JSON).
 
 For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
 
@@ -16,8 +16,8 @@ For a detailed list of changes, see [CHANGELOG.md](CHANGELOG.md).
 - **Collection Management**: Create, delete, clear, list, and inspect vector database collections
 - **ADR Loading**: Recursively load ADR markdown files from directories, automatically chunk and embed them
 - **Hybrid Search Support**: Create collections with hybrid search enabled (semantic + BM25 keyword search)
-- **Embedding Generation**: Uses Ollama with the `nomic-embed-text` model for generating embeddings
-- **Extensible Architecture**: Hexagonal architecture with pluggable adapter registry, making it easy to add support for different vector database backends
+- **Embedding Generation**: Configurable HTTP embedding adapter (`http_ollama_compat` by default) — point `embeddings.url` at your service
+- **Extensible Architecture**: Hexagonal ports with pluggable adapter registries for both the vector database and embeddings
 - **Pluggable Adapters**: Adapter registry system allows third-party adapters to be registered without modifying core code
 - **Current Backend**: Qdrant (with support for other backends via adapter pattern and entry points)
 
@@ -91,7 +91,7 @@ pytest tests/unit -v
 pytest tests/integration/test_cli_functional.py -v
 ```
 
-Integration and end-to-end scenarios require Qdrant and Ollama (the CI workflow spins them up via `docker compose`):
+Integration tests against Qdrant need a running Qdrant (CI uses `docker compose` for Qdrant; configure `embeddings` to reach your embedding HTTP API):
 
 ```bash
 pytest tests/integration -v --timeout=300
@@ -179,7 +179,7 @@ vdb-flow load my-adr-collection /path/to/adr/directory
 The tool will:
 - Recursively find all `.md` files in the specified directory
 - Clean and chunk the text
-- Generate embeddings using Ollama
+- Generate embeddings via the configured `EmbeddingProvider` (HTTP adapter)
 - Upload chunks to the vector database collection
 
 Example:
@@ -359,7 +359,7 @@ The `~/.vdb-flow/` directory will be created automatically if it doesn't exist w
 Then customize the settings as needed. The configuration file supports:
 
 - **Database settings**: Database type and URL
-- **Ollama settings**: API URL, model name, and timeout
+- **Embeddings** (`embeddings`): adapter `type`, HTTP `url`, `model`, `timeout`
 - **Text processing**: Chunk size, overlap, and max text length
 - **Rate limiting**: Database and embedding API request rate limits, with option to disable (development only)
 - **Security settings**: Custom restricted paths to block access to specific directories
@@ -371,9 +371,10 @@ You can override any configuration setting using environment variables:
 
 - `VECTOR_DB_TYPE` - Database type (e.g., "qdrant")
 - `QDRANT_URL` or `DATABASE_URL` - Database URL
-- `OLLAMA_URL` - Ollama API endpoint
-- `OLLAMA_MODEL` - Embedding model name
-- `OLLAMA_TIMEOUT` - Request timeout in seconds
+- `EMBEDDING_ADAPTER_TYPE` - e.g. `http_ollama_compat`
+- `EMBEDDING_URL` - Embedding HTTP API URL
+- `EMBEDDING_MODEL` - Model identifier for the embedding request
+- `EMBEDDING_TIMEOUT` - Request timeout in seconds
 - `CHUNK_SIZE` - Text chunk size in words
 - `CHUNK_OVERLAP` - Chunk overlap in words
 - `RATE_LIMITING_DISABLED` - Set to "true", "1", or "yes" to disable rate limiting (development only)
@@ -385,7 +386,7 @@ Example:
 
 ```bash
 export QDRANT_URL="http://localhost:6333"
-export OLLAMA_URL="http://localhost:11434/api/embeddings"
+export EMBEDDING_URL="http://localhost:11434/api/embeddings"
 export DB_RATE_LIMIT=200
 export LOG_LEVEL=WARNING
 vdb-flow create my-collection
@@ -553,24 +554,32 @@ All paths are normalized (expanded, resolved) before being checked. Paths that e
 
 - Python 3.10+
 - Vector database instance (currently Qdrant, default: `http://localhost:6333`)
-- Ollama running with `nomic-embed-text` model (default: `http://localhost:11434`)
+- An embedding HTTP API reachable at `embeddings.url` (defaults in config point at a local Ollama-compatible endpoint; use any compatible server)
 
 ## Architecture
 
 The project follows a hexagonal architecture pattern that enables extensibility:
 
-- **Ports**: Abstract interfaces in `vdb_flow/database/port.py` define the contract for vector database operations
-- **Adapters**: Concrete implementations in `vdb_flow/database/adapters/` (currently Qdrant in `qdrant.py`)
-- **Services**: Business logic in `vdb_flow/services/` that work with the abstract port interface
+- **Ports**: `VectorDatabase` in `vdb_flow/database/port.py`; `EmbeddingProvider` in `vdb_flow/embeddings/port.py`
+- **Adapters**: Database implementations in `vdb_flow/database/adapters/` (e.g. Qdrant); embedding implementations in `vdb_flow/embeddings/adapters/` (HTTP backends). Third-party packages can register via entry points `vdb_flow.adapters` and `vdb_flow.embedding_adapters`.
+- **Services**: Business logic in `vdb_flow/services/` that depend on ports (injected through `vdb_flow/composition.py`)
 - **CLI**: Command-line interface in `vdb_flow/cli/`
 
-This architecture allows you to add support for other vector databases (e.g., Pinecone, Weaviate, Milvus) by implementing the `VectorDatabase` port interface in a new adapter, without modifying the core business logic or CLI.
+You can add vector database support by implementing `VectorDatabase`, or new embedding backends by implementing `EmbeddingProvider` and registering a factory, without changing collection logic.
 
 ## Extensibility
 
-VDB Flow uses a **pluggable adapter registry system** that makes the hexagonal architecture practical and extensible. You can add custom database adapters without modifying core code.
+VDB Flow uses **pluggable adapter registries** for the vector database and for embeddings. You can add custom adapters without modifying core services.
 
-### Creating a Custom Adapter
+### Creating a Custom Embedding Adapter
+
+1. Implement `EmbeddingProvider` in `vdb_flow.embeddings.port` (`embed(self, text) -> list[float]`)
+2. Register a factory: `from vdb_flow.embeddings import register_embedding_adapter` then `register_embedding_adapter("my_embed", lambda config: MyProvider(config))`
+3. Set `embeddings.type: my_embed` in config (or `EMBEDDING_ADAPTER_TYPE=my_embed`)
+
+Optional entry point in `pyproject.toml`: `[project.entry-points."vdb_flow.embedding_adapters"]`.
+
+### Creating a Custom Database Adapter
 
 To create a custom adapter for a new vector database:
 

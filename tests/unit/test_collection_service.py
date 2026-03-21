@@ -411,39 +411,13 @@ We will use this ADR for testing purposes.
 class TestCollectionServiceHelperMethods:
     """Test CollectionService helper methods."""
 
-    def test_get_embedding_uses_injected_func(self, mock_db_client, mock_config):
-        """Test that _get_embedding uses injected embedding function."""
-        mock_embedding = Mock(return_value=[0.5] * 768)
-        service = CollectionService(
-            db_client=mock_db_client,
-            embedding_func=mock_embedding,
-            config=mock_config,
-        )
-
-        result = service._get_embedding("test text")
-
-        assert result == [0.5] * 768
-        mock_embedding.assert_called_once_with("test text")
-
-    def test_get_embedding_falls_back_to_default(self, mock_db_client, mock_config):
-        """Test that _get_embedding falls back to default if no function injected."""
-        service = CollectionService(
-            db_client=mock_db_client,
-            embedding_func=None,
-            config=mock_config,
-        )
-
-        with patch("vdb_flow.services.embedding.get_embedding") as mock_default:
-            mock_default.return_value = [0.3] * 768
-            result = service._get_embedding("test text")
-
-            assert result == [0.3] * 768
-            mock_default.assert_called_once_with("test text")
-
-    def test_get_config_uses_injected_config(self, mock_db_client, mock_config):
+    def test_get_config_uses_injected_config(
+        self, mock_db_client, mock_config, mock_embedding_func
+    ):
         """Test that _get_config uses injected config."""
         service = CollectionService(
             db_client=mock_db_client,
+            embedding_func=mock_embedding_func,
             config=mock_config,
         )
 
@@ -451,9 +425,13 @@ class TestCollectionServiceHelperMethods:
 
         assert result is mock_config
 
-    def test_get_config_falls_back_to_global(self, mock_db_client):
+    def test_get_config_falls_back_to_global(self, mock_db_client, mock_embedding_func):
         """Test that _get_config falls back to global config if not injected."""
-        service = CollectionService(db_client=mock_db_client, config=None)
+        service = CollectionService(
+            db_client=mock_db_client,
+            embedding_func=mock_embedding_func,
+            config=None,
+        )
 
         with patch("vdb_flow.config.get_config") as mock_get_config:
             mock_config = Mock()

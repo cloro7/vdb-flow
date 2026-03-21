@@ -4,9 +4,10 @@ import pytest
 import tempfile
 from pathlib import Path
 
+from vdb_flow.config import get_config
+from vdb_flow.composition import ApplicationContainer
 from vdb_flow.database import create_vector_database, get_available_adapters
 from vdb_flow.services.collection import CollectionService
-from vdb_flow.services.embedding import get_embedding
 
 
 @pytest.fixture
@@ -17,10 +18,12 @@ def inmemory_client():
 
 @pytest.fixture
 def collection_service(inmemory_client):
-    """Create a CollectionService with in-memory database."""
+    """Create a CollectionService with in-memory database (embeddings via composition root)."""
+    container = ApplicationContainer(get_config())
     return CollectionService(
         db_client=inmemory_client,
-        embedding_func=get_embedding,
+        embedding_func=container.get_embedding_func(),
+        config=container.config,
     )
 
 
@@ -220,7 +223,9 @@ Use in-memory adapter for testing.
             collection_service.load_collection(collection_name, tmpdir)
 
             # Perform search
-            query_vector = get_embedding("test database")
+            from vdb_flow.composition import get_container
+
+            query_vector = get_container().embedding_provider.embed("test database")
             results = collection_service.db_client.search(
                 collection_name, query_vector, limit=5
             )

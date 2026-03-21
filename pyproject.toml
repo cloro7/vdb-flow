@@ -50,6 +50,10 @@ vdb-flow = "vdb_flow.cli.main:main"
 # pinecone = "vdb_flow_pinecone:register_pinecone_adapter"
 # weaviate = "vdb_flow_weaviate:register_weaviate_adapter"
 
+[project.entry-points."vdb_flow.embedding_adapters"]
+# Entry points for third-party embedding adapters (register_embedding_adapter)
+# Example: myembed = "my_pkg:register_embedding"
+
 [project.urls]
 Homepage = "https://github.com/cloro7/vdb-flow"
 Repository = "https://github.com/cloro7/vdb-flow"

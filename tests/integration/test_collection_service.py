@@ -5,6 +5,8 @@ import tempfile
 import pytest
 from pathlib import Path
 
+from vdb_flow.config import get_config
+from vdb_flow.composition import ApplicationContainer
 from vdb_flow.database import VectorDatabase, create_vector_database
 from vdb_flow.database.port import CollectionNotFoundError
 from vdb_flow.services.collection import CollectionService
@@ -44,7 +46,12 @@ def qdrant_client() -> VectorDatabase:
 @pytest.fixture
 def collection_service(qdrant_client):
     """Create a collection service for testing."""
-    return CollectionService(qdrant_client)
+    container = ApplicationContainer(get_config())
+    return CollectionService(
+        qdrant_client,
+        embedding_func=container.get_embedding_func(),
+        config=container.config,
+    )
 
 
 @pytest.fixture
@@ -216,10 +223,10 @@ We will use Ollama with nomic-embed-text model for local embedding generation.
 
             # Verify we can search the loaded data
             # Get a sample embedding to test search
-            from vdb_flow.services.embedding import get_embedding
+            from vdb_flow.composition import get_container
 
             test_query = "vector database search"
-            query_vector = get_embedding(test_query)
+            query_vector = get_container().embedding_provider.embed(test_query)
 
             # Perform a search
             search_results = qdrant_client.search(

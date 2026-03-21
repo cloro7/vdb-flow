@@ -232,10 +232,10 @@ class CLICommands:
             logger.error(str(e))
             sys.exit(1)
         except RuntimeError as e:
-            # Embedding service connection errors
             logger.error(f"Embedding service error: {e}")
             logger.error(
-                "Please check that Ollama is running and accessible at the configured URL."
+                "Check embeddings.type and embeddings.url (or EMBEDDING_URL) in config / env, "
+                "and that the embedding HTTP API is reachable."
             )
             sys.exit(1)
 
