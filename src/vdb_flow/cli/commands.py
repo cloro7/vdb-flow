@@ -187,7 +187,14 @@ class CLICommands:
             logger.error(f"Database error: {e}")
             sys.exit(1)
 
-    def load_collection(self, collection_name: str, path: str) -> Dict[str, Any]:
+    def load_collection(
+        self,
+        collection_name: str,
+        path: str,
+        *,
+        incremental: Optional[bool] = None,
+        metadata_enabled: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         """
         Load ADRs from a directory into a collection.
 
@@ -211,7 +218,12 @@ class CLICommands:
             f"Loading ADRs from {adr_path} into collection '{collection_name}'..."
         )
         try:
-            self.collection_service.load_collection(collection_name, adr_path)
+            self.collection_service.load_collection(
+                collection_name,
+                adr_path,
+                incremental=incremental,
+                metadata_enabled=metadata_enabled,
+            )
             logger.info(
                 f"Successfully loaded ADRs from {adr_path} into collection '{collection_name}'"
             )

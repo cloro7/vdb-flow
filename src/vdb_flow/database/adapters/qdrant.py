@@ -12,11 +12,13 @@ from ...rate_limiter import db_rate_limiter
 from ...validation import validate_collection_name, validate_distance_metric
 from ..port import (
     VectorDatabase,
+    ChunkInput,
     InvalidCollectionNameError,
     CollectionNotFoundError,
     DatabaseConnectionError,
     DatabaseTimeoutError,
     DatabaseOperationError,
+    unpack_chunk_input,
 )
 from .. import register_adapter
 
@@ -518,7 +520,12 @@ class QdrantVectorDatabase(VectorDatabase):
         return str(uuid.UUID(collision_hash))
 
     def _check_point_exists(
-        self, collection: str, point_id: str, file_name: str, chunk_id: int
+        self,
+        collection: str,
+        point_id: str,
+        file_name: str,
+        chunk_id: int,
+        adr_metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[bool, bool]:
         """
         Check if a point exists and verify it matches expected content.
@@ -561,6 +568,11 @@ class QdrantVectorDatabase(VectorDatabase):
             existing_payload.get("source_file") == file_name
             and existing_payload.get("chunk_id") == chunk_id
         )
+        if is_match and adr_metadata:
+            new_h = adr_metadata.get("content_hash")
+            old_h = existing_payload.get("content_hash")
+            if new_h and old_h != new_h:
+                is_match = False
         return True, is_match
 
     def _ensure_hybrid_collection_cached(self, collection: str) -> bool:
@@ -621,6 +633,7 @@ class QdrantVectorDatabase(VectorDatabase):
         file_name: str,
         chunk_id: int,
         is_hybrid: bool,
+        adr_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Create a point payload for upload.
@@ -632,16 +645,21 @@ class QdrantVectorDatabase(VectorDatabase):
             file_name: Source file name
             chunk_id: Chunk identifier
             is_hybrid: Whether collection uses hybrid search
+            adr_metadata: Optional ADR metadata (merged into payload)
 
         Returns:
             Point payload dictionary
         """
         vector_payload = self._format_vector_payload(vector, is_hybrid)
-        payload = {
+        payload: Dict[str, Any] = {
             "chunk_text": chunk_text,
             "source_file": file_name,
             "chunk_id": chunk_id,
         }
+        if adr_metadata:
+            for k, v in adr_metadata.items():
+                if v is not None:
+                    payload[k] = v
         return {
             "id": point_id,
             "vector": vector_payload,
@@ -718,6 +736,7 @@ class QdrantVectorDatabase(VectorDatabase):
         file_name: str,
         chunk_id: int,
         embedding_func: Callable[[str], List[float]],
+        adr_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Upload one chunk to Qdrant if it doesn't already exist.
@@ -740,7 +759,7 @@ class QdrantVectorDatabase(VectorDatabase):
         # Generate point ID and check if it already exists
         point_id = self._generate_point_id(file_name, chunk_id)
         exists, is_match = self._check_point_exists(
-            collection, point_id, file_name, chunk_id
+            collection, point_id, file_name, chunk_id, adr_metadata=adr_metadata
         )
 
         if exists and is_match:
@@ -759,7 +778,7 @@ class QdrantVectorDatabase(VectorDatabase):
 
             # Re-check with fallback ID
             exists, is_match = self._check_point_exists(
-                collection, point_id, file_name, chunk_id
+                collection, point_id, file_name, chunk_id, adr_metadata=adr_metadata
             )
             if exists:
                 # Even the fallback collided (extremely unlikely), log and skip
@@ -772,7 +791,13 @@ class QdrantVectorDatabase(VectorDatabase):
         vector = embedding_func(chunk_text)
         is_hybrid = self._ensure_hybrid_collection_cached(collection)
         point = self._create_point_payload(
-            point_id, vector, chunk_text, file_name, chunk_id, is_hybrid
+            point_id,
+            vector,
+            chunk_text,
+            file_name,
+            chunk_id,
+            is_hybrid,
+            adr_metadata=adr_metadata,
         )
 
         data = {"points": [point]}
@@ -799,7 +824,7 @@ class QdrantVectorDatabase(VectorDatabase):
 
     def _prepare_points_parallel(
         self,
-        chunks: List[Tuple[str, str, int]],
+        chunks: List[ChunkInput],
         embedding_func: Callable[[str], List[float]],
         is_hybrid: bool,
         max_workers: int,
@@ -820,24 +845,30 @@ class QdrantVectorDatabase(VectorDatabase):
         points = []
 
         def prepare_point(
-            chunk_text: str, file_name: str, chunk_id: int
+            chunk_text: str,
+            file_name: str,
+            chunk_id: int,
+            adr_metadata: Optional[Dict[str, Any]],
         ) -> Dict[str, Any]:
             """Prepare a single point with embedding."""
             point_id = self._generate_point_id(file_name, chunk_id)
             vector = embedding_func(chunk_text)
             return self._create_point_payload(
-                point_id, vector, chunk_text, file_name, chunk_id, is_hybrid
+                point_id,
+                vector,
+                chunk_text,
+                file_name,
+                chunk_id,
+                is_hybrid,
+                adr_metadata=adr_metadata,
             )
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_chunk = {
-                executor.submit(prepare_point, chunk_text, file_name, chunk_id): (
-                    chunk_text,
-                    file_name,
-                    chunk_id,
-                )
-                for chunk_text, file_name, chunk_id in chunks
-            }
+            future_to_chunk = {}
+            for item in chunks:
+                ct, fn, cid, meta = unpack_chunk_input(item)
+                fut = executor.submit(prepare_point, ct, fn, cid, meta)
+                future_to_chunk[fut] = item
 
             for future in as_completed(future_to_chunk):
                 try:
@@ -846,7 +877,8 @@ class QdrantVectorDatabase(VectorDatabase):
                     if progress_callback:
                         progress_callback(1)
                 except Exception as e:
-                    chunk_text, file_name, chunk_id = future_to_chunk[future]
+                    item = future_to_chunk[future]
+                    chunk_text, file_name, chunk_id, _ = unpack_chunk_input(item)
                     logger.error(
                         f"Failed to prepare point for {file_name}-{chunk_id}: {e}"
                     )
@@ -858,7 +890,7 @@ class QdrantVectorDatabase(VectorDatabase):
 
     def _prepare_points_sequential(
         self,
-        chunks: List[Tuple[str, str, int]],
+        chunks: List[ChunkInput],
         embedding_func: Callable[[str], List[float]],
         is_hybrid: bool,
         progress_callback: Optional[Callable[[int], None]] = None,
@@ -867,7 +899,7 @@ class QdrantVectorDatabase(VectorDatabase):
         Prepare points sequentially.
 
         Args:
-            chunks: List of tuples (chunk_text, file_name, chunk_id)
+            chunks: List of chunk tuples (optional fourth element: adr metadata)
             embedding_func: Function to generate embeddings
             is_hybrid: Whether collection is hybrid
 
@@ -877,18 +909,28 @@ class QdrantVectorDatabase(VectorDatabase):
         points = []
 
         def prepare_point(
-            chunk_text: str, file_name: str, chunk_id: int
+            chunk_text: str,
+            file_name: str,
+            chunk_id: int,
+            adr_metadata: Optional[Dict[str, Any]],
         ) -> Dict[str, Any]:
             """Prepare a single point with embedding."""
             point_id = self._generate_point_id(file_name, chunk_id)
             vector = embedding_func(chunk_text)
             return self._create_point_payload(
-                point_id, vector, chunk_text, file_name, chunk_id, is_hybrid
+                point_id,
+                vector,
+                chunk_text,
+                file_name,
+                chunk_id,
+                is_hybrid,
+                adr_metadata=adr_metadata,
             )
 
-        for chunk_text, file_name, chunk_id in chunks:
+        for item in chunks:
+            chunk_text, file_name, chunk_id, adr_metadata = unpack_chunk_input(item)
             try:
-                point = prepare_point(chunk_text, file_name, chunk_id)
+                point = prepare_point(chunk_text, file_name, chunk_id, adr_metadata)
                 points.append(point)
                 if progress_callback:
                     progress_callback(1)
@@ -943,7 +985,7 @@ class QdrantVectorDatabase(VectorDatabase):
     def upload_chunks_batch(
         self,
         collection: str,
-        chunks: List[Tuple[str, str, int]],
+        chunks: List[ChunkInput],
         embedding_func: Callable[[str], List[float]],
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> None:
@@ -952,7 +994,7 @@ class QdrantVectorDatabase(VectorDatabase):
 
         Args:
             collection: Collection name
-            chunks: List of tuples (chunk_text, file_name, chunk_id)
+            chunks: List of tuples (chunk_text, file_name, chunk_id[, adr_metadata])
             embedding_func: Function to generate embeddings (takes text, returns vector)
             progress_callback: Optional callback function called with number of processed chunks
 
@@ -988,6 +1030,90 @@ class QdrantVectorDatabase(VectorDatabase):
 
         # Upload batch
         self._upload_batch_points(collection, points, len(chunks))
+
+    def delete_points_by_filter(
+        self, collection_name: str, qdrant_filter: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Delete points matching a Qdrant filter.
+
+        Args:
+            collection_name: Collection name
+            qdrant_filter: Filter body (e.g. {"must": [{"key": "source_file", "match": {"value": "x"}}]})
+
+        Returns:
+            Parsed JSON response from Qdrant
+        """
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
+        url = f"{self.qdrant_url}/collections/{collection_name}/points/delete"
+        try:
+            resp, _ = self._make_request("post", url, json={"filter": qdrant_filter})
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code == 404:
+                raise QdrantCollectionNotFoundError(
+                    f"Collection '{collection_name}' not found"
+                )
+            error_msg = f"Failed to delete points: {resp.status_code} — {resp.text}"
+            logger.warning(error_msg)
+            raise DatabaseOperationError(error_msg)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error deleting points: {e}")
+            raise DatabaseOperationError(f"Failed to delete points: {e}") from e
+
+    def scroll_points(
+        self,
+        collection_name: str,
+        qdrant_filter: Dict[str, Any],
+        limit: int = 1,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Scroll points matching filter (Qdrant API), at most ``limit``."""
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
+        url = f"{self.qdrant_url}/collections/{collection_name}/points/scroll"
+        body: Dict[str, Any] = {
+            "filter": qdrant_filter,
+            "limit": limit,
+            "with_payload": with_payload,
+            "with_vector": False,
+        }
+        try:
+            resp, _ = self._make_request("post", url, json=body)
+            if resp.status_code == 200:
+                data = resp.json().get("result", {})
+                return data.get("points", []) or []
+            if resp.status_code == 404:
+                raise QdrantCollectionNotFoundError(
+                    f"Collection '{collection_name}' not found"
+                )
+            error_msg = f"Failed to scroll points: {resp.status_code} — {resp.text}"
+            logger.warning(error_msg)
+            raise DatabaseOperationError(error_msg)
+        except (
+            DatabaseConnectionError,
+            DatabaseTimeoutError,
+            DatabaseOperationError,
+            InvalidCollectionNameError,
+            QdrantError,
+        ):
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error scrolling points: {e}")
+            raise DatabaseOperationError(f"Failed to scroll points: {e}") from e
 
     def search(
         self, collection_name: str, vector: List[float], limit: int = 5

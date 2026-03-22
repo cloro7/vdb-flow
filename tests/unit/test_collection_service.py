@@ -17,7 +17,10 @@ from vdb_flow.database.port import (
 @pytest.fixture
 def mock_db_client():
     """Create a mock database client."""
-    return Mock()
+    m = Mock()
+    m.scroll_points.return_value = []
+    m.delete_points_by_filter.return_value = {"status": "ok"}
+    return m
 
 
 @pytest.fixture
@@ -41,6 +44,12 @@ def mock_config():
     config.restricted_paths = []
     config.denied_patterns = []
     config.allowed_patterns = []
+    config.metadata_enabled = True
+    config.metadata_incremental = False
+    config.metadata_suffix = ".metadata.json"
+    config.use_llm_when_no_sidecar = True
+    config.metadata_document_kind = "adr"
+    config.metadata_preprocess_workers = 4
     return config
 
 

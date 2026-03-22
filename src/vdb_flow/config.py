@@ -55,6 +55,32 @@ DEFAULT_CONFIG = {
     "logging": {
         "level": "INFO",  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
     },
+    # ADR metadata (optional sidecar JSON, rules, optional LLM enrichment)
+    "metadata": {
+        "enabled": True,
+        "metadata_suffix": ".metadata.json",
+        "incremental": False,
+        "use_llm_when_no_sidecar": True,
+        "document_kind": "adr",
+        # Parallel file pre-processing (read → metadata → chunk). I/O-bound LLM calls benefit most.
+        "preprocess_workers": 4,
+    },
+    # LLM for metadata enrichment (provider-specific; none = disabled)
+    "llm": {
+        "provider": "none",
+        "subprocess": {
+            "command": [],
+            "timeout": 300,
+            "cwd": None,
+            "env": {},
+        },
+        "claude_cli": {
+            "command": [],
+            "timeout": 300,
+            "cwd": None,
+            "env": {},
+        },
+    },
 }
 
 
@@ -294,6 +320,55 @@ class Config:
             List of glob patterns to explicitly permit (overrides denied patterns)
         """
         return self._config.get("security", {}).get("allowed_patterns", [])
+
+    @property
+    def metadata_enabled(self) -> bool:
+        """Whether ADR metadata is resolved and stored in point payloads."""
+        return bool(self._config.get("metadata", {}).get("enabled", True))
+
+    @property
+    def metadata_incremental(self) -> bool:
+        """Skip unchanged ADRs and delete/re-upload only when content hash changes."""
+        return bool(self._config.get("metadata", {}).get("incremental", False))
+
+    @property
+    def metadata_suffix(self) -> str:
+        """Sidecar filename pattern: ``{stem}{metadata_suffix}`` next to each ``.md``."""
+        return str(
+            self._config.get("metadata", {}).get("metadata_suffix", ".metadata.json")
+        )
+
+    @property
+    def use_llm_when_no_sidecar(self) -> bool:
+        """Run LLM enrichment when no valid sidecar JSON exists."""
+        return bool(
+            self._config.get("metadata", {}).get("use_llm_when_no_sidecar", True)
+        )
+
+    @property
+    def metadata_document_kind(self) -> str:
+        """
+        Default ``document_kind`` stored on each point (e.g. ``adr``).
+
+        Future document families (e.g. architectural concepts) can use another value
+        once schemas and resolvers support them.
+        """
+        return str(self._config.get("metadata", {}).get("document_kind", "adr"))
+
+    @property
+    def metadata_preprocess_workers(self) -> int:
+        """
+        Thread pool size for parallel pre-processing (read → metadata → chunk).
+
+        Set to ``1`` to process one file at a time. Higher values help when metadata
+        enrichment is slow (e.g. subprocess / Claude CLI per ADR).
+        """
+        raw = self._config.get("metadata", {}).get("preprocess_workers", 4)
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            n = 4
+        return max(1, min(n, 64))
 
     @property
     def log_level(self) -> int:

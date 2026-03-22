@@ -419,7 +419,10 @@ def test_load_collection_success(mock_expanduser, mock_exists, mock_validate_pat
     mock_expanduser.assert_called_once_with("~/path/to/adrs")
     mock_exists.assert_called_once_with("/expanded/path")
     commands.collection_service.load_collection.assert_called_once_with(
-        "test-collection", "/expanded/path"
+        "test-collection",
+        "/expanded/path",
+        incremental=None,
+        metadata_enabled=None,
     )
 
 
@@ -710,7 +713,7 @@ def test_main_load_command(
 
     mock_get_commands.assert_called_once()
     mock_commands.load_collection.assert_called_once_with(
-        "test-collection", "/path/to/adrs"
+        "test-collection", "/path/to/adrs", incremental=None, metadata_enabled=None
     )
     # Verify output formatting was called (default is json)
     mock_format_output.assert_called_once_with(mock_result, "json", "load")
