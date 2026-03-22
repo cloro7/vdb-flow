@@ -12,6 +12,7 @@ from ..port import (
     CollectionNotFoundError,
     InvalidVectorSizeError,
     DatabaseOperationError,
+    unpack_chunk_input,
 )
 from .. import register_adapter
 
@@ -245,6 +246,7 @@ class InMemoryVectorDatabase(VectorDatabase):
         file_name: str,
         chunk_id: int,
         embedding_func: Callable[[str], List[float]],
+        adr_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Upload a single chunk to a collection.
@@ -289,15 +291,20 @@ class InMemoryVectorDatabase(VectorDatabase):
         ]
         point_id = str(uuid.UUID(content_hash))
 
+        payload: Dict[str, Any] = {
+            "chunk_text": chunk_text,
+            "source_file": file_name,
+            "chunk_id": chunk_id,
+        }
+        if adr_metadata:
+            for k, v in adr_metadata.items():
+                if v is not None:
+                    payload[k] = v
         # Store point
         self._collections[collection_name]["points"][point_id] = {
             "id": point_id,
             "vector": vector,
-            "payload": {
-                "chunk_text": chunk_text,
-                "file_name": file_name,
-                "chunk_id": chunk_id,
-            },
+            "payload": payload,
         }
 
     def upload_chunks_batch(
@@ -330,16 +337,77 @@ class InMemoryVectorDatabase(VectorDatabase):
             raise CollectionNotFoundError(f"Collection '{collection_name}' not found")
 
         # Process chunks sequentially (simple implementation)
-        for chunk_text, file_name, chunk_id in chunks:
+        for item in chunks:
+            chunk_text, file_name, chunk_id, adr_metadata = unpack_chunk_input(item)
             try:
                 self.upload_chunk(
-                    collection_name, chunk_text, file_name, chunk_id, embedding_func
+                    collection_name,
+                    chunk_text,
+                    file_name,
+                    chunk_id,
+                    embedding_func,
+                    adr_metadata=adr_metadata,
                 )
                 if progress_callback:
                     progress_callback(1)
             except Exception as e:
                 logger.error(f"Failed to upload chunk {chunk_id} from {file_name}: {e}")
                 raise DatabaseOperationError(f"Failed to upload chunk: {e}") from e
+
+    def delete_points_by_filter(
+        self, collection_name: str, qdrant_filter: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Delete points whose payload matches the Qdrant-style filter (must clauses)."""
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
+        if collection_name not in self._collections:
+            raise CollectionNotFoundError(f"Collection '{collection_name}' not found")
+        points = self._collections[collection_name]["points"]
+        to_delete = [
+            pid
+            for pid, pdata in points.items()
+            if self._payload_matches_filter(pdata["payload"], qdrant_filter)
+        ]
+        for pid in to_delete:
+            del points[pid]
+        return {"status": "ok", "deleted": len(to_delete)}
+
+    @staticmethod
+    def _payload_matches_filter(payload: Dict[str, Any], filt: Dict[str, Any]) -> bool:
+        for cond in filt.get("must", []):
+            key = cond.get("key")
+            match = cond.get("match", {})
+            expected = match.get("value")
+            if payload.get(key) != expected:
+                return False
+        return True
+
+    def scroll_points(
+        self,
+        collection_name: str,
+        qdrant_filter: Dict[str, Any],
+        limit: int = 1,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Return up to ``limit`` points matching ``filter``."""
+        try:
+            validate_collection_name(collection_name)
+        except ValueError as e:
+            raise InvalidCollectionNameError(str(e)) from e
+        if collection_name not in self._collections:
+            raise CollectionNotFoundError(f"Collection '{collection_name}' not found")
+        out: List[Dict[str, Any]] = []
+        for point_id, pdata in self._collections[collection_name]["points"].items():
+            if self._payload_matches_filter(pdata["payload"], qdrant_filter):
+                row: Dict[str, Any] = {"id": point_id}
+                if with_payload:
+                    row["payload"] = pdata["payload"]
+                out.append(row)
+                if len(out) >= limit:
+                    break
+        return out
 
     def search(
         self,

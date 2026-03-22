@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADR metadata v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "metadata_schema_version",
+    "document_kind",
+    "adr_id",
+    "title",
+    "code_scope",
+    "repo_type"
+  ],
+  "properties": {
+    "metadata_schema_version": {
+      "type": "string",
+      "description": "Schema version for forward compatibility"
+    },
+    "document_kind": {
+      "type": "string",
+      "enum": ["adr", "arch_concept"],
+      "minLength": 1,
+      "description": "Document family for filtering and future per-kind schemas (e.g. adr, arch_concept). Default load uses adr."
+    },
+    "adr_id": {
+      "type": "string",
+      "description": "Stable ADR identifier"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "content_hash": {
+      "type": "string",
+      "description": "SHA-256 hex of canonical markdown bytes"
+    },
+    "code_scope": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Tech/language scopes; use general when none apply. Closed vocabulary.",
+      "items": {
+        "type": "string",
+        "enum": ["cpp", "csharp", "rust", "yaml", "json", "dockerfile", "general"]
+      }
+    },
+    "repo_type": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Kinds of repository this ADR applies to. Use [\"all\"] for general rules that apply to any repo. Omit in sidecar to default to [\"all\"] at resolve time.",
+      "items": {
+        "type": "string",
+        "enum": ["all", "unit", "tool", "library"]
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "metadata_source": {
+      "type": "string",
+      "enum": ["file", "generated", "merged"]
+    },
+    "metadata_file": {
+      "type": ["string", "null"],
+      "description": "Relative path to sidecar JSON when metadata_source is file or merged"
+    }
+  }
+}

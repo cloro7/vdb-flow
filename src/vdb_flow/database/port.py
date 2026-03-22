@@ -1,9 +1,26 @@
 """Database port for hexagonal architecture."""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Callable, Tuple, Optional
+from typing import List, Dict, Any, Callable, Tuple, Optional, Union
 
 from ..constants import DEFAULT_VECTOR_SIZE
+
+# (chunk_text, file_name, chunk_id) or with optional ADR metadata dict
+ChunkInput = Union[
+    Tuple[str, str, int],
+    Tuple[str, str, int, Optional[Dict[str, Any]]],
+]
+
+
+def unpack_chunk_input(
+    item: Tuple[Any, ...],
+) -> Tuple[str, str, int, Optional[Dict[str, Any]]]:
+    """Normalize 3- or 4-tuple chunk rows for upload APIs."""
+    if len(item) == 3:
+        return item[0], item[1], item[2], None
+    if len(item) == 4:
+        return item[0], item[1], item[2], item[3]
+    raise ValueError(f"Chunk tuple must have 3 or 4 elements, got {len(item)}")
 
 
 class VectorDatabaseError(Exception):
@@ -133,6 +150,7 @@ class VectorDatabase(ABC):
         file_name: str,
         chunk_id: int,
         embedding_func: Callable[[str], List[float]],
+        adr_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Upload a text chunk with its embedding to the database.
@@ -143,13 +161,14 @@ class VectorDatabase(ABC):
             file_name: Source file name
             chunk_id: Chunk identifier
             embedding_func: Function to generate embeddings
+            adr_metadata: Optional ADR metadata fields merged into point payload
         """
         pass
 
     def upload_chunks_batch(
         self,
         collection: str,
-        chunks: List[Tuple[str, str, int]],
+        chunks: List[ChunkInput],
         embedding_func: Callable[[str], List[float]],
         progress_callback: Optional[Callable[[int], None]] = None,
     ) -> None:
@@ -161,17 +180,56 @@ class VectorDatabase(ABC):
 
         Args:
             collection: Collection name
-            chunks: List of tuples (chunk_text, file_name, chunk_id)
+            chunks: List of tuples (chunk_text, file_name, chunk_id) or with optional
+                adr_metadata dict as fourth element
             embedding_func: Function to generate embeddings
             progress_callback: Optional callback to report progress (called with number of chunks processed)
         """
         # Default implementation: fall back to individual uploads
-        for chunk_text, file_name, chunk_id in chunks:
+        for item in chunks:
+            chunk_text, file_name, chunk_id, adr_metadata = unpack_chunk_input(item)
             self.upload_chunk(
-                collection, chunk_text, file_name, chunk_id, embedding_func
+                collection,
+                chunk_text,
+                file_name,
+                chunk_id,
+                embedding_func,
+                adr_metadata=adr_metadata,
             )
             if progress_callback:
                 progress_callback(1)
+
+    @abstractmethod
+    def delete_points_by_filter(
+        self, collection_name: str, qdrant_filter: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Delete points matching a Qdrant filter (payload field conditions).
+
+        Args:
+            collection_name: Collection name
+            qdrant_filter: Qdrant filter object (e.g. {"must": [...]})
+
+        Returns:
+            Raw API result or summary dict
+        """
+        pass
+
+    def scroll_points(
+        self,
+        collection_name: str,
+        qdrant_filter: Dict[str, Any],
+        limit: int = 1,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return sample points matching filter (for incremental load checks).
+
+        Default: not supported by this adapter.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement scroll_points"
+        )
 
     @abstractmethod
     def search(

@@ -26,6 +26,7 @@ dependencies = [
     "requests>=2.28.0",
     "pyyaml>=6.0.0",
     "tqdm>=4.64.0",
+    "jsonschema>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -76,7 +77,7 @@ version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 
 [tool.setuptools.package-data]
-"*" = ["*.md", "*.txt"]
+"vdb_flow" = ["metadata/schema/*.json", "*.md", "*.txt"]
 
 # Semantic versioning: tags like v1.2.3 (see README "Releases"). Version is read from Git only
 # (setuptools-scm + Commitizen scm provider — no version committed to pyproject).

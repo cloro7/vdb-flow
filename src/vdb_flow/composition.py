@@ -11,6 +11,7 @@ from typing import Callable, List, Optional
 from .config import Config, get_config
 from .database import create_vector_database, VectorDatabase
 from .embeddings import EmbeddingProvider, create_embedding_provider
+from .llm.factory import create_llm_provider
 from .services.collection import CollectionService
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ class ApplicationContainer:
                 self.db_client,
                 embedding_func=self.get_embedding_func(),
                 config=self._config,
+                llm_provider=create_llm_provider(self._config),
             )
         return self._collection_service
 

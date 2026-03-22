@@ -104,6 +104,19 @@ def create_parser() -> argparse.ArgumentParser:
     load_parser.add_argument(
         "path", help="Path to ADR directory (can include subfolders)."
     )
+    load_parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help=(
+            "Only re-embed ADRs whose content hash changed; removes old vectors "
+            "per file first. Uses config metadata.incremental when omitted."
+        ),
+    )
+    load_parser.add_argument(
+        "--no-metadata",
+        action="store_true",
+        help="Do not resolve or store ADR metadata payloads (sidecar JSON / rules / LLM).",
+    )
     _add_log_level_argument(load_parser)
     _add_output_argument(load_parser)
 
@@ -442,7 +455,12 @@ def _execute_command(args: argparse.Namespace, commands: CLICommands) -> Any:
     elif args.action == "info":
         return commands.get_collection_info(args.collection)
     elif args.action == "load":
-        return commands.load_collection(args.collection, args.path)
+        return commands.load_collection(
+            args.collection,
+            args.path,
+            incremental=True if getattr(args, "incremental", False) else None,
+            metadata_enabled=(False if getattr(args, "no_metadata", False) else None),
+        )
     return None
 
 

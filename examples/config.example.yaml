@@ -72,6 +72,34 @@ security:
   #   - /etc/company-docs/**     # Allow company docs under /etc even if /etc/** is denied
   #   - ~/private/public/*       # Allow public files in private directory
 
+# ADR metadata (stored in each vector payload; optional sidecar JSON next to each .md)
+metadata:
+  enabled: true
+  metadata_suffix: ".metadata.json"  # sibling file: {stem}.metadata.json
+  incremental: false                  # true = skip unchanged ADRs by content_hash
+  use_llm_when_no_sidecar: true      # if false, rules only when no sidecar JSON
+  document_kind: adr                 # stored on each point; future kinds (e.g. arch_concept) when supported
+  preprocess_workers: 4              # parallel threads for read → metadata → chunk (set 1 to serialize)
+  # Sidecar JSON may include repo_type: [all|unit|tool|library]; omitted defaults to [all].
+
+# Optional LLM enrichment for metadata (e.g. code_scope, tags).
+# provider: none | subprocess | claude-cli
+llm:
+  provider: none
+  # Generic subprocess: stdin is a JSON task (task, markdown, draft, instruction).
+  subprocess:
+    command: []
+    timeout: 300
+    cwd: null
+    env: {}
+  # Claude Code CLI: vdb-flow runs ``<command> -p --output-format json`` with the prompt on stdin.
+  # Requires Node.js 18+ (global ReadableStream); Node 16 will fail.
+  claude_cli:
+    command: ["claude"]   # or a full path to the claude binary
+    timeout: 300
+    cwd: null
+    env: {}
+
 # Logging configuration
 logging:
   # Logging level: "DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL"

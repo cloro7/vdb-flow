@@ -1,12 +1,15 @@
 """Collection service for loading and managing ADR collections."""
 
-import os
 import logging
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from ..config import Config
+    from ..llm.base import LlmProvider
 
 from tqdm import tqdm
 
@@ -16,6 +19,12 @@ from ..database.port import (
     CollectionNotFoundError,
     InvalidCollectionNameError,
     InvalidVectorSizeError,
+    unpack_chunk_input,
+)
+from ..metadata.resolver import (
+    content_hash_from_text,
+    metadata_for_payload,
+    resolve_adr_metadata,
 )
 from ..validation import (
     validate_collection_name,
@@ -38,6 +47,7 @@ class CollectionService:
         db_client: VectorDatabase,
         embedding_func: Callable[[str], List[float]],
         config: Optional["Config"] = None,
+        llm_provider: Optional["LlmProvider"] = None,
     ):
         """
         Initialize collection service.
@@ -47,10 +57,12 @@ class CollectionService:
             embedding_func: Text-to-vector embedding (typically ``EmbeddingProvider.embed``,
                 wired at the composition root).
             config: Optional Config instance. If None, will use default (for backward compatibility).
+            llm_provider: Optional LLM adapter for metadata enrichment (e.g. subprocess CLI).
         """
         self.db_client = db_client
         self._embedding_func = embedding_func
         self._config = config
+        self._llm_provider = llm_provider
 
     def _get_config(self) -> "Config":
         """
@@ -98,6 +110,111 @@ class CollectionService:
             except Exception as e:
                 logger.error(f"Failed to read file {rel_path}: {e}")
                 raise
+
+    def _incremental_unchanged_skip(
+        self,
+        collection_name: str,
+        rel_path: str,
+        content_hash: str,
+        incremental_lock: threading.Lock,
+    ) -> bool:
+        """Return True if incremental load should skip this file (content hash unchanged)."""
+        filt = {
+            "must": [
+                {
+                    "key": "source_file",
+                    "match": {"value": rel_path},
+                }
+            ]
+        }
+        with incremental_lock:
+            try:
+                sample = self.db_client.scroll_points(collection_name, filt, limit=1)
+            except NotImplementedError:
+                logger.warning(
+                    "Incremental load requires scroll_points; loading all files fully"
+                )
+                sample = []
+            if sample:
+                prev = sample[0].get("payload") or {}
+                if prev.get("content_hash") == content_hash:
+                    logger.debug("Skipping unchanged ADR %s", rel_path)
+                    return True
+            self.db_client.delete_points_by_filter(collection_name, filt)
+        return False
+
+    def _preload_one_markdown(
+        self,
+        collection_name: str,
+        file_path: str,
+        rel_path: str,
+        *,
+        do_incremental: bool,
+        metadata_enabled: Optional[bool],
+        config: "Config",
+        incremental_lock: threading.Lock,
+    ) -> Optional[Tuple[List[Tuple[str, str, int, Optional[Dict[str, Any]]]], bool]]:
+        """
+        Read one ADR, resolve metadata, chunk. Used by parallel pre-processing.
+
+        Returns:
+            ``(chunk tuples for this file, True)`` on success, or ``None`` if skipped
+            (unchanged incremental) or the file could not be read.
+        """
+        try:
+            raw = self._read_file_with_fallback(file_path, rel_path)
+        except (UnicodeDecodeError, IOError) as e:
+            logger.error(f"Failed to read file {rel_path}: {e}")
+            return None
+        text = clean_text(raw)
+        ch = content_hash_from_text(text)
+
+        if do_incremental and self._incremental_unchanged_skip(
+            collection_name, rel_path, ch, incremental_lock
+        ):
+            return None
+
+        meta_enabled = (
+            config.metadata_enabled
+            if metadata_enabled is None
+            else bool(metadata_enabled)
+        )
+        if meta_enabled:
+            logger.info(
+                "Resolving ADR metadata [%s] for %s",
+                threading.current_thread().name,
+                rel_path,
+            )
+        meta = resolve_adr_metadata(
+            config,
+            file_path,
+            rel_path,
+            text,
+            self._llm_provider,
+            metadata_enabled=metadata_enabled,
+        )
+        if meta_enabled and meta:
+            title = meta.get("title") or ""
+            if len(title) > 120:
+                title = title[:117] + "..."
+            logger.info(
+                "Resolved metadata [%s] for %s: adr_id=%r title=%r code_scope=%s "
+                "repo_type=%s tags=%s source=%s",
+                threading.current_thread().name,
+                rel_path,
+                meta.get("adr_id"),
+                title,
+                meta.get("code_scope"),
+                meta.get("repo_type"),
+                meta.get("tags"),
+                meta.get("metadata_source"),
+            )
+        meta_payload = metadata_for_payload(meta)
+        chunks = chunk_text(text)
+        out: List[Tuple[str, str, int, Optional[Dict[str, Any]]]] = []
+        for i, chunk in enumerate(chunks):
+            out.append((chunk, rel_path, i + 1, meta_payload))
+        return (out, True)
 
     def create_collection(
         self,
@@ -235,58 +352,17 @@ class CollectionService:
                 f"Please create it first using the 'create' command."
             )
 
-    def _discover_md_files(self, validated_path: Path) -> List[Tuple[str, str, int]]:
-        """
-        Discover all .md files and count their chunks.
-
-        Args:
-            validated_path: Validated path to search
-
-        Returns:
-            List of tuples (file_path, rel_path, num_chunks)
-        """
-        md_files = []
+    def _list_markdown_files(self, validated_path: Path) -> List[Tuple[str, str]]:
+        """Discover all ``.md`` files under ``validated_path``."""
+        md_files: List[Tuple[str, str]] = []
         path_str = str(validated_path)
         for root, _, files in os.walk(path_str):
             for file in files:
                 if file.endswith(".md"):
                     file_path = os.path.join(root, file)
                     rel_path = os.path.relpath(file_path, path_str)
-                    # Count chunks for this file with encoding error handling
-                    try:
-                        text = self._read_file_with_fallback(file_path, rel_path)
-                        text = clean_text(text)
-                    except (UnicodeDecodeError, IOError) as e:
-                        logger.error(f"Failed to read file {rel_path}: {e}")
-                        continue
-                    chunks = chunk_text(text)
-                    md_files.append((file_path, rel_path, len(chunks)))
+                    md_files.append((file_path, rel_path))
         return md_files
-
-    def _collect_all_chunks(
-        self, md_files: List[Tuple[str, str, int]]
-    ) -> List[Tuple[str, str, int]]:
-        """
-        Collect all chunks from discovered files.
-
-        Args:
-            md_files: List of tuples (file_path, rel_path, num_chunks)
-
-        Returns:
-            List of tuples (chunk_text, file_name, chunk_id)
-        """
-        all_chunks: List[Tuple[str, str, int]] = []
-        for file_path, rel_path, num_chunks in md_files:
-            try:
-                text = self._read_file_with_fallback(file_path, rel_path)
-                text = clean_text(text)
-            except (UnicodeDecodeError, IOError) as e:
-                logger.error(f"Failed to read file {rel_path}: {e}")
-                continue
-            chunks = chunk_text(text)
-            for i, chunk in enumerate(chunks):
-                all_chunks.append((chunk, rel_path, i + 1))
-        return all_chunks
 
     def _process_batch_with_fallback(
         self,
@@ -325,7 +401,8 @@ class CollectionService:
                 f"Batch upload failed, falling back to individual uploads: {e}"
             )
             # Fallback to individual uploads for this batch
-            for chunk_content, file_name, chunk_id in batch:
+            for item in batch:
+                chunk_content, file_name, chunk_id, adr_meta = unpack_chunk_input(item)
                 try:
                     self.db_client.upload_chunk(
                         collection_name,
@@ -333,6 +410,7 @@ class CollectionService:
                         file_name,
                         chunk_id,
                         self._embedding_func,
+                        adr_metadata=adr_meta,
                     )
                     processed += 1
                     pbar.update(1)
@@ -341,13 +419,29 @@ class CollectionService:
                     logger.error(f"Failed to upload chunk {file_name}-{chunk_id}: {e2}")
         return processed
 
-    def load_collection(self, collection_name: str, path: str) -> None:
+    def load_collection(
+        self,
+        collection_name: str,
+        path: str,
+        *,
+        incremental: Optional[bool] = None,
+        metadata_enabled: Optional[bool] = None,
+    ) -> None:
         """
         Recursively read all .md ADRs from path, chunk them, and upload.
+
+        Pre-processing (read → metadata → chunk) runs in parallel using a thread pool
+        sized by config ``metadata.preprocess_workers`` (default 4). Set to ``1`` to
+        process one file at a time. This speeds up slow metadata steps (e.g. LLM
+        subprocess calls) without requiring a full asyncio stack.
 
         Args:
             collection_name: Name of the collection
             path: Path to ADR directory (can include subfolders)
+            incremental: If True, skip unchanged ADRs (content hash) and replace only
+                changed files. Defaults to config ``metadata.incremental``.
+            metadata_enabled: If False, do not resolve or store ADR metadata payloads.
+                Defaults to config ``metadata.enabled``.
 
         Raises:
             ValueError: If collection does not exist or validation fails
@@ -376,16 +470,76 @@ class CollectionService:
         # Validate that collection exists
         self._validate_collection_exists(collection_name)
 
-        # Discover all .md files and count chunks
-        md_files = self._discover_md_files(validated_path)
-        if not md_files:
+        do_incremental = (
+            config.metadata_incremental if incremental is None else incremental
+        )
+        md_paths = self._list_markdown_files(validated_path)
+        if not md_paths:
             logger.warning(f"No .md files found in {path}")
             return
 
-        total_chunks = sum(num_chunks for _, _, num_chunks in md_files)
+        n_md = len(md_paths)
+        workers = config.metadata_preprocess_workers
+        logger.info(
+            "Pre-processing %d markdown file(s) using %d thread(s): "
+            "read → metadata → chunk (see progress bar).",
+            n_md,
+            workers,
+        )
 
-        # Collect all chunks with metadata for batch processing
-        all_chunks = self._collect_all_chunks(md_files)
+        all_chunks: List[Tuple[str, str, int, Optional[Dict[str, Any]]]] = []
+        files_loaded = 0
+
+        incremental_lock = threading.Lock()
+
+        def _preload_task(
+            item: Tuple[str, str],
+        ) -> Optional[
+            Tuple[List[Tuple[str, str, int, Optional[Dict[str, Any]]]], bool]
+        ]:
+            fp, rp = item
+            return self._preload_one_markdown(
+                collection_name,
+                fp,
+                rp,
+                do_incremental=do_incremental,
+                metadata_enabled=metadata_enabled,
+                config=config,
+                incremental_lock=incremental_lock,
+            )
+
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            results = list(
+                tqdm(
+                    ex.map(_preload_task, md_paths),
+                    total=n_md,
+                    desc="Pre-processing files",
+                    unit="file",
+                    leave=True,
+                    bar_format=(
+                        "{l_bar}{bar}| {n_fmt}/{total_fmt} files "
+                        "[{elapsed}<{remaining}, {rate_fmt}]"
+                    ),
+                )
+            )
+
+        for result in results:
+            if result is None:
+                continue
+            chunk_rows, _loaded = result
+            all_chunks.extend(chunk_rows)
+            files_loaded += 1
+
+        if not all_chunks:
+            logger.warning(f"No chunkable content in {path}")
+            return
+
+        total_chunks = len(all_chunks)
+        logger.info(
+            "Pre-processing done: %d file(s), %d chunk(s). Starting embeddings and upload.",
+            files_loaded,
+            total_chunks,
+        )
 
         # Process chunks in batches with parallel embedding generation
         with tqdm(
@@ -395,13 +549,12 @@ class CollectionService:
             leave=True,
             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} chunks [{elapsed}<{remaining}, {rate_fmt}]",
         ) as pbar:
-            # Process in batches
             for batch_start in range(0, len(all_chunks), BATCH_SIZE):
                 batch_end = min(batch_start + BATCH_SIZE, len(all_chunks))
                 batch = all_chunks[batch_start:batch_end]
                 self._process_batch_with_fallback(collection_name, batch, pbar)
 
         logger.debug(
-            f"Successfully loaded {len(md_files)} files ({total_chunks} chunks) "
+            f"Successfully loaded {files_loaded} files ({total_chunks} chunks) "
             f"into collection '{collection_name}'"
         )
