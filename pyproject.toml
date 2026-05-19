@@ -33,7 +33,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-timeout>=2.0.0",
-    "black==26.3.1",  # keep in sync with .pre-commit-config.yaml (psf/black rev); >=26.3.1 for CVE-2026-32274
+    "black==26.5.1",  # keep in sync with .pre-commit-config.yaml (psf/black rev); >=26.3.1 for CVE-2026-32274
     "flake8==7.3.0",  # keep in sync with .pre-commit-config.yaml (pycqa/flake8 rev)
     "flake8-docstrings>=1.7.0",  # matches pre-commit flake8 hook additional_dependencies
     "pre-commit>=3.0.0",
